@@ -1,0 +1,32 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#374151"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="dropGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#d1d5db"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="url(#bgGrad)"/>
+  <rect x="0.5" y="0.5" width="31" height="31" rx="6.5" stroke="white" stroke-opacity="0.1"/>
+
+  <!-- Ink drop -->
+  <path d="M16 5 C16 5 9 12 9 18 C9 22.5 12.5 26 16 26 C19.5 26 23 22.5 23 18 C23 12 16 5 16 5Z" fill="url(#dropGrad)"/>
+
+  <!-- Highlight -->
+  <ellipse cx="12.5" cy="16" rx="2" ry="3" fill="white" fill-opacity="0.4"/>
+
+  <!-- E-ink pixels -->
+  <g opacity="0.2">
+    <rect x="13" y="21" width="2" height="2" rx="0.3" fill="#1a1a1a"/>
+    <rect x="17" y="21" width="2" height="2" rx="0.3" fill="#1a1a1a"/>
+    <rect x="15" y="23" width="2" height="2" rx="0.3" fill="#1a1a1a"/>
+  </g>
+
+  <!-- Top shine -->
+  <path d="M16 7 C16 7 13 10 12.5 12 C13 11 14.5 10 16 8.5 C17.5 10 19 11 19.5 12 C19 10 16 7 16 7Z" fill="white" fill-opacity="0.25"/>
+</svg>

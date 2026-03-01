@@ -1,0 +1,10 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle - light version -->
+  <circle cx="256" cy="256" r="240" fill="white" stroke="#1a1a1a" stroke-width="8"/>
+
+  <!-- Ink drop shape -->
+  <path d="M256 80 C256 80 160 200 160 300 C160 355 203 400 256 400 C309 400 352 355 352 300 C352 200 256 80 256 80Z" fill="#1a1a1a"/>
+
+  <!-- Inner highlight -->
+  <ellipse cx="220" cy="280" rx="25" ry="35" fill="white" opacity="0.2"/>
+</svg>

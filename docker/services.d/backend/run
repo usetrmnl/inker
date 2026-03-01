@@ -1,0 +1,32 @@
+#!/command/with-contenv sh
+exec 2>&1
+
+# Wait for PostgreSQL to be ready
+echo "[backend] Waiting for PostgreSQL..."
+until su - postgres -c "pg_isready -q" 2>/dev/null; do
+    sleep 1
+done
+echo "[backend] PostgreSQL is ready"
+
+# Wait for Redis to be ready
+echo "[backend] Waiting for Redis..."
+until redis-cli -a "${REDIS_PASSWORD:-inker_redis}" --no-auth-warning ping 2>/dev/null | grep -q PONG; do
+    sleep 1
+done
+echo "[backend] Redis is ready"
+
+# Create required directories and set ownership for non-root backend
+mkdir -p /app/uploads/screens /app/uploads/firmware /app/uploads/widgets /app/uploads/captures /app/uploads/drawings /app/logs /tmp/inker-home
+chown -R inker:inker /app/uploads /app/logs /tmp/inker-home
+
+# Set HOME for the inker user (Puppeteer needs a writable home for config)
+export HOME=/tmp/inker-home
+
+# Run database migrations as non-root user
+cd /app
+echo "[backend] Running database migrations..."
+s6-setuidgid inker bunx prisma db push --skip-generate 2>&1 || echo "[backend] Warning: Database migration had issues, check logs"
+
+# Start backend as non-root user
+echo "[backend] Starting Inker backend..."
+exec s6-setuidgid inker bun run dist/main.js

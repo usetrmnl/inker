@@ -1,0 +1,296 @@
+// Inker Database Schema
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Device {
+  id              Int       @id @default(autoincrement())
+  name            String    @map("label")
+  friendlyId      String?   @map("friendly_id")
+  macAddress      String    @unique @map("mac_address")
+  apiKey          String    @unique @map("api_key")
+  firmwareVersion String?   @map("firmware_version")
+  modelId         Int?      @map("model_id")
+  playlistId      Int?      @map("playlist_id")
+  isActive        Boolean   @default(true) @map("is_active")
+  wifi            Int       @default(0)
+  battery         Float     @default(0)
+  refreshRate     Int       @default(900) @map("refresh_rate")
+  imageTimeout    Int       @default(0) @map("image_timeout")
+  width           Int       @default(0)
+  height          Int       @default(0)
+  proxy           Boolean   @default(false)
+  firmwareUpdate  Boolean   @default(true) @map("firmware_update")
+  sleepStartAt    String?   @map("sleep_start_at")
+  sleepStopAt     String?   @map("sleep_stop_at")
+  lastSeenAt      DateTime? @map("last_seen_at")
+  refreshPending  Boolean   @default(false) @map("refresh_pending")
+  lastScreenId    String?   @map("last_screen_id") // Track last displayed screen for ghosting prevention
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  model             Model?    @relation(fields: [modelId], references: [id])
+  playlist          Playlist? @relation(fields: [playlistId], references: [id])
+  logs              DeviceLog[]
+  screenAssignments DeviceScreenAssignment[]
+
+  @@map("devices")
+}
+
+model Model {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  label       String
+  width       Int
+  height      Int
+  description String?
+  mimeType    String   @default("image/png") @map("mime_type")
+  colors      Int      @default(2)
+  bitDepth    Int      @default(1) @map("bit_depth")
+  rotation    Int      @default(0)
+  offsetX     Int      @default(0) @map("offset_x")
+  offsetY     Int      @default(0) @map("offset_y")
+  kind        String   @default("terminus")
+  scaleFactor Float    @default(1.0) @map("scale_factor")
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  devices     Device[]
+  screens     Screen[]
+
+  @@map("models")
+}
+
+model Screen {
+  id             Int       @id @default(autoincrement())
+  name           String
+  description    String?
+  imageUrl       String    @map("image_url")
+  thumbnailUrl   String?   @map("thumbnail_url")
+  modelId        Int       @map("model_id")
+  isPublic       Boolean   @default(false) @map("is_public")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  model          Model     @relation(fields: [modelId], references: [id])
+  playlistItems  PlaylistItem[]
+
+  @@map("screens")
+}
+
+model Playlist {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  isActive    Boolean  @default(false) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  items       PlaylistItem[]
+  devices     Device[]
+
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id             Int      @id @default(autoincrement())
+  playlistId     Int      @map("playlist_id")
+  screenId       Int?     @map("screen_id")
+  screenDesignId Int?     @map("screen_design_id")
+  order          Int      @default(0)
+  duration       Int      @default(60) // seconds
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  playlist       Playlist         @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  screen         Screen?          @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  screenDesign   ScreenDesign?    @relation(fields: [screenDesignId], references: [id], onDelete: Cascade)
+
+  @@map("playlist_items")
+}
+
+model Extension {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  type        String   // webhook, polling, custom
+  config      Json     // JSON configuration
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("extensions")
+}
+
+// ========================
+// Data Source & Custom Widget Models
+// ========================
+
+// Data Source - external API or RSS feed configuration
+model DataSource {
+  id              Int       @id @default(autoincrement())
+  name            String
+  description     String?
+  type            String    // "json" | "rss"
+  url             String    // API endpoint or RSS feed URL
+  method          String    @default("GET") // HTTP method for JSON APIs
+  headers         Json?     // Custom headers (e.g., API keys)
+  refreshInterval Int       @default(300) @map("refresh_interval") // Seconds between fetches
+  jsonPath        String?   @map("json_path") // JSONPath expression to extract data
+  isActive        Boolean   @default(true) @map("is_active")
+  lastFetchedAt   DateTime? @map("last_fetched_at")
+  lastData        Json?     @map("last_data") // Cached response data
+  lastError       String?   @map("last_error") // Last fetch error message
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  customWidgets   CustomWidget[]
+
+  @@map("data_sources")
+}
+
+// Custom Widget - user-defined widget using data from a DataSource
+model CustomWidget {
+  id            Int      @id @default(autoincrement())
+  name          String
+  description   String?
+  dataSourceId  Int      @map("data_source_id")
+  displayType   String   // "template" | "value" | "list" | "title-value"
+  template      String?  // Template string for "template" display type
+  config        Json     @default("{}") // Layout config (fontSize, alignment, etc.)
+  minWidth      Int      @default(100) @map("min_width")
+  minHeight     Int      @default(50) @map("min_height")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  dataSource    DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+
+  @@map("custom_widgets")
+}
+
+model Firmware {
+  id          Int      @id @default(autoincrement())
+  version     String   @unique
+  downloadUrl String   @map("download_url")
+  releaseNotes String?  @map("release_notes")
+  isStable    Boolean  @default(false) @map("is_stable")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("firmware")
+}
+
+model DeviceLog {
+  id        Int      @id @default(autoincrement())
+  deviceId  Int      @map("device_id")
+  level     String   // info, warning, error
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_logs")
+}
+
+// ========================
+// Screen Designer Models
+// ========================
+
+// Widget Template - defines available widget types
+model WidgetTemplate {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique // e.g., "clock", "weather", "text"
+  label         String   // Display name: "Live Clock", "Weather"
+  description   String?
+  category      String   // "time", "weather", "content", "system"
+  defaultConfig Json     // Default configuration for this widget type
+  minWidth      Int      @default(100) @map("min_width")
+  minHeight     Int      @default(50) @map("min_height")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  widgets       ScreenWidget[]
+
+  @@map("widget_templates")
+}
+
+// Screen Design - a designed screen with widgets
+model ScreenDesign {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  width       Int      @default(800)
+  height      Int      @default(480)
+  background  String   @default("#FFFFFF") // white for e-ink
+  isTemplate  Boolean  @default(false) @map("is_template")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  widgets       ScreenWidget[]
+  assignments   DeviceScreenAssignment[]
+  playlistItems PlaylistItem[]
+
+  @@map("screen_designs")
+}
+
+// Widget instance on a screen
+model ScreenWidget {
+  id             Int      @id @default(autoincrement())
+  screenDesignId Int      @map("screen_design_id")
+  templateId     Int      @map("template_id")
+  x              Int      @default(0)
+  y              Int      @default(0)
+  width          Int      @default(200)
+  height         Int      @default(100)
+  rotation       Int      @default(0) // Rotation in degrees (0, 90, 180, 270, or any angle)
+  config         Json     // Widget-specific config (timezone, location, etc.)
+  zIndex         Int      @default(0) @map("z_index")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  screenDesign   ScreenDesign   @relation(fields: [screenDesignId], references: [id], onDelete: Cascade)
+  template       WidgetTemplate @relation(fields: [templateId], references: [id])
+
+  @@map("screen_widgets")
+}
+
+// Device to Screen Design assignment
+model DeviceScreenAssignment {
+  id             Int      @id @default(autoincrement())
+  deviceId       Int      @map("device_id")
+  screenDesignId Int      @map("screen_design_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  device         Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  screenDesign   ScreenDesign @relation(fields: [screenDesignId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, screenDesignId])
+  @@map("device_screen_assignments")
+}
+
+// Application Settings - key/value store for configuration
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   // Stored as encrypted string for sensitive values
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// Blocked devices - prevents auto-provisioning of deleted devices
+model BlockedDevice {
+  id         Int      @id @default(autoincrement())
+  macAddress String   @unique @map("mac_address")
+  reason     String?  // Why device was blocked (e.g., "deleted by admin")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("blocked_devices")
+}

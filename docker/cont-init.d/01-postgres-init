@@ -1,0 +1,71 @@
+#!/bin/sh
+set -e
+
+PGDATA=/var/lib/postgresql/17/main
+PG17_BIN=/usr/lib/postgresql/17/bin
+PG15_BIN=/usr/lib/postgresql/15/bin
+
+if [ -f "$PGDATA/PG_VERSION" ]; then
+    PG_VER=$(cat "$PGDATA/PG_VERSION")
+
+    if [ "$PG_VER" = "15" ] && [ -x "$PG15_BIN/pg_ctl" ]; then
+        echo "[init] Detected PostgreSQL 15 data, migrating to 17..."
+
+        # Move old data to temp location
+        PG15_TMP=/var/lib/postgresql/15/main_tmp
+        mkdir -p "$PG15_TMP"
+        mv "$PGDATA"/* "$PG15_TMP"/
+        chown -R postgres:postgres /var/lib/postgresql
+        chmod 700 "$PG15_TMP"
+
+        # Start PG 15 on alternate port with old data, dump everything
+        su - postgres -c "$PG15_BIN/pg_ctl -D $PG15_TMP -o '-p 5433' -w start"
+        su - postgres -c "$PG15_BIN/pg_dumpall -p 5433" > /tmp/pg_upgrade.sql
+        su - postgres -c "$PG15_BIN/pg_ctl -D $PG15_TMP -w stop"
+
+        # Init fresh PG 17 cluster
+        mkdir -p "$PGDATA"
+        chown -R postgres:postgres /var/lib/postgresql
+        su - postgres -c "$PG17_BIN/initdb -D $PGDATA"
+
+        cat > "$PGDATA/pg_hba.conf" <<'CONF'
+local all postgres peer
+local all all md5
+host all all 127.0.0.1/32 md5
+host all all ::1/128 md5
+CONF
+
+        # Start PG 17 and restore dump
+        su - postgres -c "$PG17_BIN/pg_ctl -D $PGDATA -w start"
+        su - postgres -c "psql -f /tmp/pg_upgrade.sql" >/dev/null 2>&1
+        su - postgres -c "$PG17_BIN/pg_ctl -D $PGDATA -w stop"
+
+        # Cleanup
+        rm -rf "$PG15_TMP" /tmp/pg_upgrade.sql /var/lib/postgresql/15
+
+        echo "[init] PostgreSQL migration 15 → 17 complete"
+    else
+        echo "[init] PostgreSQL data directory exists (version $PG_VER), skipping init"
+        chown -R postgres:postgres /var/lib/postgresql
+    fi
+else
+    echo "[init] Initializing PostgreSQL database..."
+    mkdir -p "$PGDATA"
+    chown -R postgres:postgres /var/lib/postgresql
+
+    su - postgres -c "$PG17_BIN/initdb -D $PGDATA"
+
+    cat > "$PGDATA/pg_hba.conf" <<'CONF'
+local all postgres peer
+local all all md5
+host all all 127.0.0.1/32 md5
+host all all ::1/128 md5
+CONF
+
+    su - postgres -c "$PG17_BIN/pg_ctl -D $PGDATA -w start"
+    su - postgres -c "psql -c \"CREATE USER inker_user WITH PASSWORD '${POSTGRES_PASSWORD:-inker_password}';\""
+    su - postgres -c "psql -c \"CREATE DATABASE inker_db OWNER inker_user;\""
+    su - postgres -c "$PG17_BIN/pg_ctl -D $PGDATA -w stop"
+
+    echo "[init] PostgreSQL initialized successfully"
+fi
