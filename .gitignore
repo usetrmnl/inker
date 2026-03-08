@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+build/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+logs.txt
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes (local data)
+postgres_data/
+redis_data/
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Uploads (user generated)
+uploads/*
+!uploads/.gitkeep
+
+# Package locks (optional - keep if you want reproducible builds)
+# package-lock.json
+# bun.lockb
+
+# Test coverage
+coverage/
+.nyc_output/

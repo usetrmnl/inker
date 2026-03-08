@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+/* Import the config to ensure custom theme is loaded */
+@config "../tailwind.config.js";
+
+/* ============================================
+   LOCAL FONTS - Consistent rendering between designer and device
+   ============================================ */
+
+/* Inter - Sans Serif */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Inter-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Inter-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Inter-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Inter-Bold.woff2') format('woff2');
+}
+
+/* Roboto Mono - Monospace */
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/RobotoMono-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/RobotoMono-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/RobotoMono-Bold.woff2') format('woff2');
+}
+
+/* Merriweather - Serif */
+@font-face {
+  font-family: 'Merriweather';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Merriweather-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Merriweather';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Merriweather-Bold.woff2') format('woff2');
+}
+
+/* ============================================
+   THEME CONFIGURATION
+   Change these CSS variables to update the entire theme
+   ============================================ */
+
+:root {
+  /* ===================
+     BACKGROUND COLORS
+     =================== */
+  --bg-page: #FAFAFA;           /* Main page background */
+  --bg-card: #FFFFFF;           /* Card/panel backgrounds */
+  --bg-card-hover: #F5F5F5;     /* Card hover state */
+  --bg-input: #FFFFFF;          /* Input field background */
+  --bg-muted: #F0F0F0;          /* Muted/subtle backgrounds */
+  --bg-overlay: rgba(0, 0, 0, 0.5);  /* Modal overlay */
+
+  /* ===================
+     SIDEBAR (Dark)
+     =================== */
+  --sidebar-bg: #1A1A1A;        /* Sidebar background */
+  --sidebar-bg-hover: #2A2A2A;  /* Sidebar item hover */
+  --sidebar-text: #E5E5E5;      /* Sidebar primary text */
+  --sidebar-text-muted: #888888; /* Sidebar secondary text */
+  --sidebar-border: #333333;    /* Sidebar borders */
+  --sidebar-active-bg: rgba(61, 107, 61, 0.15);  /* Active item background */
+  --sidebar-active-accent: #4A8B4A;  /* Active item accent bar */
+
+  /* ===================
+     TEXT COLORS
+     =================== */
+  --text-primary: #1A1A1A;      /* Headings, important text */
+  --text-secondary: #4A4A4A;    /* Body text */
+  --text-muted: #888888;        /* Subtle/helper text */
+  --text-placeholder: #AAAAAA;  /* Placeholder text */
+  --text-inverse: #FFFFFF;      /* Text on dark backgrounds */
+
+  /* ===================
+     BORDER COLORS
+     =================== */
+  --border-light: #E5E5E5;      /* Subtle borders */
+  --border-default: #D0D0D0;    /* Default borders */
+  --border-dark: #AAAAAA;       /* Emphasized borders */
+
+  /* ===================
+     ACCENT COLOR (Green)
+     Monochrome with green details
+     =================== */
+  --accent: #3D6B3D;            /* Primary accent - forest green */
+  --accent-hover: #2D5A2D;      /* Accent hover state - darker green */
+  --accent-light: #E8F5E8;      /* Light accent background - pale green */
+  --accent-text: #2D5A2D;       /* Accent text color - dark green */
+
+  /* ===================
+     STATUS COLORS (Muted/Subtle)
+     =================== */
+  /* Success (muted green) */
+  --status-success-bg: #F0F5F0;
+  --status-success-text: #3D6B3D;
+  --status-success-border: #C0D4C0;
+  --status-success-dot: #5A9A5A;
+
+  /* Error (muted red) */
+  --status-error-bg: #F8F0F0;
+  --status-error-text: #8B4545;
+  --status-error-border: #D4B4B4;
+  --status-error-dot: #B86B6B;
+
+  /* Warning (muted amber) */
+  --status-warning-bg: #F8F5F0;
+  --status-warning-text: #7A5C32;
+  --status-warning-border: #D4C8B0;
+  --status-warning-dot: #B89850;
+
+  /* Info (muted gray) */
+  --status-info-bg: #F0F2F5;
+  --status-info-text: #4A5568;
+  --status-info-border: #C0C8D4;
+  --status-info-dot: #6B7A8A;
+
+  /* ===================
+     SHADOWS
+     =================== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+
+  /* ===================
+     MISC
+     =================== */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* ============================================
+   DARK MODE (optional - for future use)
+   ============================================ */
+/*
+.dark {
+  --bg-page: #0A0A0A;
+  --bg-card: #1A1A1A;
+  --bg-card-hover: #2A2A2A;
+  --text-primary: #F0F0F0;
+  --text-secondary: #C0C0C0;
+  ... etc
+}
+*/
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* ============================================
+   GLOBAL STYLES
+   ============================================ */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-page);
+  color: var(--text-secondary);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ============================================
+   SCROLLBAR STYLING (subtle)
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

@@ -1,0 +1,172 @@
+Inker - Source Available License
+License Version 1.1
+
+Copyright (c) 2025-2026 Wojtek (wojo)
+All rights reserved.
+
+
+DEFINITIONS
+
+"Software" means the Inker source code, documentation, assets, and any
+associated files in this repository.
+
+"Personal Use" means use by an individual for private, non-commercial
+purposes where the Software does not directly or indirectly generate
+revenue.
+
+"Internal Organizational Use" means use within an organization solely for
+that organization's own operational purposes, provided the Software is not
+offered to third parties and does not form a component of any product or
+service provided to third parties, whether for a fee or otherwise.
+
+"Contribution" means any modification, addition, or improvement submitted
+to the original repository via pull request, patch, or other mechanism.
+
+"Original Repository" means the official Inker repository maintained by the
+copyright holder at its designated hosting location.
+
+
+1. GRANT OF LICENSE
+
+   Subject to the terms and conditions of this license, the copyright holder
+   grants you a limited, non-exclusive, non-transferable, non-sublicensable,
+   revocable license to:
+
+   (a) View, download, and run the Software for Personal Use.
+   (b) Run the Software for Internal Organizational Use.
+   (c) Submit Contributions to the Original Repository.
+
+   No other rights are granted, whether express or implied. All rights not
+   explicitly granted herein are reserved by the copyright holder.
+
+
+2. RESTRICTIONS
+
+   You may NOT, and you may not permit any third party to:
+
+   (a) Sell, resell, sublicense, rent, lease, loan, or otherwise transfer
+       the Software or any rights in the Software to any third party.
+
+   (b) Redistribute, publish, or make the Software available to third
+       parties in any form, whether modified or unmodified, in whole or
+       in part.
+
+   (c) Modify, adapt, translate, reverse engineer, decompile, disassemble,
+       or create derivative works based on the Software, except for
+       Contributions submitted to the Original Repository in accordance
+       with Section 3.
+
+   (d) Use the Software, in whole or in part, as a component of, or
+       foundation for, any product or service offered to third parties,
+       whether for a fee or free of charge. This includes, without
+       limitation, offering the Software as a hosted service, a managed
+       service, or embedding it within another product.
+
+   (e) Use the Software to develop any software or service that provides
+       substantially similar functionality to the Software.
+
+   (f) Remove, alter, or obscure this license notice, any copyright
+       notices, or any other proprietary notices contained in the
+       Software.
+
+   (g) Use the name, trademarks, or branding of the Software or its
+       author to endorse or promote products or services without prior
+       written permission.
+
+   (h) Circumvent or attempt to circumvent any of the restrictions in
+       this license, including by using the Software's design, structure,
+       or logic to create a substantially similar work in any programming
+       language or framework.
+
+
+3. CONTRIBUTIONS
+
+   By submitting a Contribution to the Original Repository, you:
+
+   (a) Grant the copyright holder a perpetual, worldwide, irrevocable,
+       non-exclusive, royalty-free, fully sublicensable license to use,
+       reproduce, modify, display, distribute, and create derivative works
+       from your Contribution as part of the Software, under any license
+       terms the copyright holder chooses.
+
+   (b) Represent that you have the legal right to grant the above license
+       and that your Contribution does not infringe on any third-party
+       rights.
+
+   (c) Acknowledge that the creation of a Contribution for submission to
+       the Original Repository is the sole exception to the restriction
+       on derivative works in Section 2(c).
+
+
+4. TERMINATION
+
+   (a) This license is effective until terminated. Your rights under this
+       license will terminate automatically and immediately, without notice,
+       if you fail to comply with any term of this license.
+
+   (b) Upon termination, you must cease all use of the Software and destroy
+       all copies in your possession or control.
+
+   (c) The copyright holder reserves the right to revoke this license at
+       any time, for any reason, upon thirty (30) days written notice.
+
+   (d) Sections 5, 6, 7, and 8 survive termination of this license.
+
+
+5. DISCLAIMER OF WARRANTIES
+
+   THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY
+   OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+   WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+   NON-INFRINGEMENT, AND ACCURACY. THE COPYRIGHT HOLDER DOES NOT WARRANT
+   THAT THE SOFTWARE WILL BE ERROR-FREE, UNINTERRUPTED, OR FREE OF
+   HARMFUL COMPONENTS.
+
+
+6. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL
+   THE COPYRIGHT HOLDER BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+   CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS
+   OF PROFITS, LOSS OF DATA, BUSINESS INTERRUPTION, OR LOSS OF GOODWILL,
+   ARISING OUT OF OR IN CONNECTION WITH THE USE OR INABILITY TO USE THE
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+   THE COPYRIGHT HOLDER'S TOTAL AGGREGATE LIABILITY ARISING OUT OF OR
+   RELATED TO THIS LICENSE SHALL NOT EXCEED THE AMOUNT YOU PAID FOR THE
+   SOFTWARE (WHICH IS ZERO).
+
+   SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OR LIMITATION OF CERTAIN
+   DAMAGES. IN SUCH JURISDICTIONS, THE ABOVE LIMITATIONS SHALL APPLY TO
+   THE MAXIMUM EXTENT PERMITTED BY LAW.
+
+
+7. GOVERNING LAW AND DISPUTE RESOLUTION
+
+   (a) This license shall be governed by and construed in accordance with
+       the laws of the Republic of Poland, without regard to its conflict
+       of law provisions.
+
+   (b) Any dispute arising out of or in connection with this license shall
+       be subject to the exclusive jurisdiction of the courts of Poland.
+
+   (c) Nothing in this section shall prevent the copyright holder from
+       seeking injunctive or other equitable relief in any jurisdiction
+       to protect intellectual property rights.
+
+
+8. GENERAL PROVISIONS
+
+   (a) This license constitutes the entire agreement between you and the
+       copyright holder regarding the Software and supersedes all prior
+       agreements and understandings.
+
+   (b) If any provision of this license is held to be unenforceable, the
+       remaining provisions shall remain in full force and effect.
+
+   (c) The failure of the copyright holder to enforce any right or
+       provision of this license shall not constitute a waiver of such
+       right or provision.
+
+   (d) This license may not be assigned or transferred by you without the
+       prior written consent of the copyright holder.

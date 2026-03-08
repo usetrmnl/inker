@@ -1,0 +1,33 @@
+**/node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+.vscode
+.idea
+coverage
+*.log
+.DS_Store
+
+# Dev files
+backend/Dockerfile.dev
+frontend/Dockerfile.dev
+docker-compose.dev.yml
+
+# Private/CI files
+.drone.yml
+start.sh
+backend/start.sh
+
+# Test output
+.nyc_output
+
+# Upload data (mounted as volume)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build artifacts (rebuilt in Docker)
+backend/dist
+frontend/dist

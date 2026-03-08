@@ -1,0 +1,2 @@
+#!/command/with-contenv sh
+exec redis-server --appendonly yes --dir /data --requirepass "${REDIS_PASSWORD:-inker_redis}"

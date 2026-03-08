@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+echo "[init] Creating application directories..."
+mkdir -p /app/uploads/screens /app/uploads/firmware /app/uploads/widgets /app/uploads/captures /app/uploads/drawings /app/logs
+mkdir -p /data
+
+echo "[init] Application directories ready"
