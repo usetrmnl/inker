@@ -177,7 +177,7 @@ export class CustomWidgetsService {
    * Get widget with rendered data
    * Fetches latest data from source and applies template
    */
-  async getWithData(id: number) {
+  async getWithData(id: number, skipFetch = false) {
     const customWidget = await this.prisma.customWidget.findUnique({
       where: { id },
       include: {
@@ -192,6 +192,7 @@ export class CustomWidgetsService {
     // Get cached or fresh data from data source
     const data = await this.dataSourcesService.getCachedData(
       customWidget.dataSourceId,
+      skipFetch,
     );
 
     // Render the data based on display type

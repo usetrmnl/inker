@@ -61,6 +61,11 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
   private readonly GITHUB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly GITHUB_CACHE_MAX_SIZE = 100;
 
+  // Weather API cache to reduce redundant Open-Meteo calls (10 minute TTL)
+  private weatherCache: Map<string, { data: { temperature: number; weatherCode: number; humidity: number; windSpeed: number; dayName: string }; timestamp: number }> = new Map();
+  private readonly WEATHER_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+  private readonly WEATHER_CACHE_MAX_SIZE = 50;
+
   constructor(
     private prisma: PrismaService,
     private customWidgetsService: CustomWidgetsService,
@@ -806,6 +811,14 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
     windSpeed: number;
     dayName: string;
   } | null> {
+    // Check cache first
+    const cacheKey = `${latitude},${longitude},${forecastDay},${forecastTime}`;
+    const cached = this.weatherCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.WEATHER_CACHE_TTL) {
+      this.logger.debug(`Weather data for ${cacheKey} served from cache`);
+      return cached.data;
+    }
+
     try {
       // Build API URL with required parameters
       const url = new URL('https://api.open-meteo.com/v1/forecast');
@@ -842,60 +855,85 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
       if (forecastDay === 0) dayName = 'Today';
       else if (forecastDay === 1) dayName = 'Tomorrow';
 
+      let result: { temperature: number; weatherCode: number; humidity: number; windSpeed: number; dayName: string };
+
       // If current weather (day 0, time current), use current data
       if (forecastDay === 0 && forecastTime === 'current') {
-        return {
+        result = {
           temperature: Math.round(data.current.temperature_2m),
           weatherCode: data.current.weather_code,
           humidity: data.current.relative_humidity_2m,
           windSpeed: Math.round(data.current.wind_speed_10m),
           dayName,
         };
-      }
-
-      // Otherwise, find the appropriate hourly data
-      const hourMap: Record<string, number> = {
-        'current': now.getHours(),
-        'morning': 8,
-        'noon': 12,
-        'afternoon': 15,
-        'evening': 19,
-        'night': 22,
-      };
-
-      const targetHour = hourMap[forecastTime] ?? 12;
-
-      // Build target datetime string (YYYY-MM-DDTHH:00)
-      const year = targetDate.getFullYear();
-      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const day = String(targetDate.getDate()).padStart(2, '0');
-      const hour = String(targetHour).padStart(2, '0');
-      const targetTimeStr = `${year}-${month}-${day}T${hour}:00`;
-
-      // Find the index in hourly data
-      const hourlyTimes = data.hourly?.time || [];
-      const index = hourlyTimes.findIndex((t: string) => t === targetTimeStr);
-
-      if (index >= 0 && data.hourly) {
-        return {
-          temperature: Math.round(data.hourly.temperature_2m[index]),
-          weatherCode: data.hourly.weather_code[index],
-          humidity: data.hourly.relative_humidity_2m[index],
-          windSpeed: Math.round(data.hourly.wind_speed_10m[index]),
-          dayName,
+      } else {
+        // Otherwise, find the appropriate hourly data
+        const hourMap: Record<string, number> = {
+          'current': now.getHours(),
+          'morning': 8,
+          'noon': 12,
+          'afternoon': 15,
+          'evening': 19,
+          'night': 22,
         };
+
+        const targetHour = hourMap[forecastTime] ?? 12;
+
+        // Build target datetime string (YYYY-MM-DDTHH:00)
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const hour = String(targetHour).padStart(2, '0');
+        const targetTimeStr = `${year}-${month}-${day}T${hour}:00`;
+
+        // Find the index in hourly data
+        const hourlyTimes = data.hourly?.time || [];
+        const index = hourlyTimes.findIndex((t: string) => t === targetTimeStr);
+
+        if (index >= 0 && data.hourly) {
+          result = {
+            temperature: Math.round(data.hourly.temperature_2m[index]),
+            weatherCode: data.hourly.weather_code[index],
+            humidity: data.hourly.relative_humidity_2m[index],
+            windSpeed: Math.round(data.hourly.wind_speed_10m[index]),
+            dayName,
+          };
+        } else {
+          // Fallback to current if hourly not found
+          result = {
+            temperature: Math.round(data.current.temperature_2m),
+            weatherCode: data.current.weather_code,
+            humidity: data.current.relative_humidity_2m,
+            windSpeed: Math.round(data.current.wind_speed_10m),
+            dayName,
+          };
+        }
       }
 
-      // Fallback to current if hourly not found
-      return {
-        temperature: Math.round(data.current.temperature_2m),
-        weatherCode: data.current.weather_code,
-        humidity: data.current.relative_humidity_2m,
-        windSpeed: Math.round(data.current.wind_speed_10m),
-        dayName,
-      };
+      // Store in cache and evict expired entries
+      const now2 = Date.now();
+      this.weatherCache.set(cacheKey, { data: result, timestamp: now2 });
+      for (const [key, entry] of this.weatherCache.entries()) {
+        if (now2 - entry.timestamp > this.WEATHER_CACHE_TTL * 2) {
+          this.weatherCache.delete(key);
+        }
+      }
+      if (this.weatherCache.size > this.WEATHER_CACHE_MAX_SIZE) {
+        const sorted = [...this.weatherCache.entries()].sort(([, a], [, b]) => a.timestamp - b.timestamp);
+        for (const [key] of sorted.slice(0, this.weatherCache.size - this.WEATHER_CACHE_MAX_SIZE)) {
+          this.weatherCache.delete(key);
+        }
+      }
+      this.logger.debug(`Weather data for ${cacheKey} fetched and cached`);
+
+      return result;
     } catch (error) {
       this.logger.warn(`Failed to fetch weather: ${error instanceof Error ? error.message : String(error)}`);
+      // Return stale cache if available
+      if (cached) {
+        this.logger.debug(`Returning stale weather cache for ${cacheKey}`);
+        return cached.data;
+      }
       return null;
     }
   }
@@ -1772,8 +1810,8 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
     }
 
     try {
-      // Fetch the custom widget with its rendered data
-      const preview = await this.customWidgetsService.getWithData(customWidgetId);
+      // Fetch the custom widget with cached data (no external API fetch during render)
+      const preview = await this.customWidgetsService.getWithData(customWidgetId, true);
       const { widget, renderedContent } = preview;
       const widgetConfig = widget.config as Record<string, any>;
       const fieldType = widgetConfig.fieldType as string | undefined;
@@ -3026,7 +3064,7 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
     if (!customWidgetId) return '<div style="color: #999;">No widget ID</div>';
 
     try {
-      const result = await this.customWidgetsService.getWithData(customWidgetId);
+      const result = await this.customWidgetsService.getWithData(customWidgetId, true);
       const renderedContent = result.renderedContent;
       const widgetConfig = (result.widget?.config as Record<string, any>) || {};
 

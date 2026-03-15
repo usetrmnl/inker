@@ -837,14 +837,20 @@ export class DataSourcesService {
 
   /**
    * Get cached data for a data source, refreshing if stale
+   * @param skipFetch - If true, return cached data without fetching (for previews/editing)
    */
-  async getCachedData(id: number): Promise<unknown> {
+  async getCachedData(id: number, skipFetch = false): Promise<unknown> {
     const dataSource = await this.prisma.dataSource.findUnique({
       where: { id },
     });
 
     if (!dataSource) {
       throw new NotFoundException('Data source not found');
+    }
+
+    // When skipFetch is true, return cached data without hitting the external API
+    if (skipFetch && dataSource.lastData) {
+      return dataSource.lastData;
     }
 
     // Check if data is stale

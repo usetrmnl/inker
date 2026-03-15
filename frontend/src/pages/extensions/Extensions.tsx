@@ -243,9 +243,97 @@ function ConfirmDeleteModal({
 }
 
 /**
+ * Confirmation Modal for API Test Requests
+ */
+function ConfirmTestModal({
+  isOpen,
+  itemName,
+  isBulk,
+  count,
+  onConfirm,
+  onCancel,
+  isTesting,
+}: {
+  isOpen: boolean;
+  itemName: string;
+  isBulk?: boolean;
+  count?: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isTesting: boolean;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-bg-overlay"
+        onClick={onCancel}
+      />
+      <div className="relative bg-bg-card rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
+            <svg className="w-6 h-6" style={{ color: '#D97706' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-text-primary">Test API Connection</h3>
+            <p className="text-sm text-text-muted">
+              {isBulk
+                ? `This will send a request to all ${count} external APIs. This counts against any rate limits or quotas.`
+                : 'This will send a request to the external API. This counts against any rate limits or quotas.'}
+            </p>
+          </div>
+        </div>
+
+        {!isBulk && (
+          <div className="bg-bg-muted rounded-lg p-3 mb-6">
+            <p className="text-sm font-medium text-text-primary truncate">{itemName}</p>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={isTesting}
+            className="flex-1 px-4 py-2 text-text-secondary bg-bg-muted rounded-lg hover:bg-border-light transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isTesting}
+            className="flex-1 px-4 py-2 text-text-inverse rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ backgroundColor: '#F59E0B' }}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#D97706';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#F59E0B';
+            }}
+          >
+            {isTesting ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Testing...
+              </>
+            ) : (
+              'Send Request'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Data Sources Tab Content
  */
-const MAX_AUTO_TEST = 5; // Auto-test if 5 or fewer data sources
 
 function DataSourcesTab({
   dataSources,
@@ -271,7 +359,8 @@ function DataSourcesTab({
   const [isDeleting, setIsDeleting] = useState(false);
   const [testingIds, setTestingIds] = useState<Set<number>>(new Set());
   const [dotCount, setDotCount] = useState(1);
-  const [hasAutoTested, setHasAutoTested] = useState(false);
+  const [testTarget, setTestTarget] = useState<DataSource | null>(null);
+  const [showTestAllModal, setShowTestAllModal] = useState(false);
 
   // Animated dots for "Waiting" state
   useEffect(() => {
@@ -282,8 +371,25 @@ function DataSourcesTab({
     return () => clearInterval(interval);
   }, [testingIds.size]);
 
-  // Wrap handleTestAll in useCallback to avoid dependency issues
-  const handleTestAllCallback = useCallback(async () => {
+  const handleTestDataSource = async (id: number) => {
+    setTestTarget(null);
+    setTestingIds((prev) => new Set(prev).add(id));
+    try {
+      await dataSourceService.testFetch(id);
+    } catch {
+      // Error will be stored in lastError
+    } finally {
+      setTestingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      onRefetch();
+    }
+  };
+
+  const handleTestAll = useCallback(async () => {
+    setShowTestAllModal(false);
     const ids = dataSources.map((ds) => ds.id);
     setTestingIds(new Set(ids));
 
@@ -304,33 +410,6 @@ function DataSourcesTab({
     );
     onRefetch();
   }, [dataSources, onRefetch]);
-
-  // Auto-test all data sources on mount (if not too many)
-  useEffect(() => {
-    if (!hasAutoTested && dataSources.length > 0 && dataSources.length <= MAX_AUTO_TEST) {
-      setHasAutoTested(true);
-      handleTestAllCallback();
-    }
-  }, [dataSources, hasAutoTested, handleTestAllCallback]);
-
-  const handleTestDataSource = async (id: number) => {
-    setTestingIds((prev) => new Set(prev).add(id));
-    try {
-      await dataSourceService.testFetch(id);
-    } catch {
-      // Error will be stored in lastError
-    } finally {
-      setTestingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      onRefetch();
-    }
-  };
-
-  // handleTestAll now uses the memoized callback
-  const handleTestAll = handleTestAllCallback;
 
   const getWaitingDots = () => '.'.repeat(dotCount);
 
@@ -393,32 +472,25 @@ function DataSourcesTab({
 
   return (
     <>
-      {/* Test All button when too many data sources */}
-      {dataSources.length > MAX_AUTO_TEST && (
-        <div className="mb-4 flex items-center justify-between bg-status-warning-bg border border-status-warning-border rounded-lg px-4 py-3">
-          <p className="text-sm text-status-warning-text">
-            {testingIds.size > 0
-              ? `Testing ${testingIds.size} of ${dataSources.length} data sources...`
-              : `${dataSources.length} data sources found. Click to test all APIs.`}
-          </p>
-          <button
-            onClick={handleTestAll}
-            disabled={testingIds.size > 0}
-            className="px-4 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-            style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}
-            onMouseEnter={(e) => {
-              if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#D97706';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#F59E0B';
-            }}
-          >
-            {testingIds.size > 0 ? `Testing${getWaitingDots()}` : 'Test All'}
-          </button>
-        </div>
-      )}
+      {/* Test All button */}
+      <div className="mb-4 flex items-center justify-end">
+        <button
+          onClick={() => setShowTestAllModal(true)}
+          disabled={testingIds.size > 0}
+          className="px-4 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+          style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}
+          onMouseEnter={(e) => {
+            if (!e.currentTarget.disabled) {
+              e.currentTarget.style.backgroundColor = '#D97706';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#F59E0B';
+          }}
+        >
+          {testingIds.size > 0 ? `Testing${getWaitingDots()}` : 'Test All'}
+        </button>
+      </div>
 
       <div className="bg-bg-card rounded-xl shadow-sm border border-border-light overflow-hidden">
         <table className="min-w-full divide-y divide-border-light">
@@ -466,7 +538,7 @@ function DataSourcesTab({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
-                    onClick={() => handleTestDataSource(ds.id)}
+                    onClick={() => setTestTarget(ds)}
                     disabled={testingIds.has(ds.id)}
                     className="px-2 py-1 text-xs font-medium rounded-full transition-colors min-w-[80px]"
                     style={
@@ -550,6 +622,24 @@ function DataSourcesTab({
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
         isDeleting={isDeleting}
+      />
+
+      <ConfirmTestModal
+        isOpen={!!testTarget}
+        itemName={testTarget?.name || ''}
+        onConfirm={() => testTarget && handleTestDataSource(testTarget.id)}
+        onCancel={() => setTestTarget(null)}
+        isTesting={!!testTarget && testingIds.has(testTarget.id)}
+      />
+
+      <ConfirmTestModal
+        isOpen={showTestAllModal}
+        itemName=""
+        isBulk
+        count={dataSources.length}
+        onConfirm={handleTestAll}
+        onCancel={() => setShowTestAllModal(false)}
+        isTesting={testingIds.size > 0}
       />
     </>
   );

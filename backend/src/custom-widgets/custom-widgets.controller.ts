@@ -50,9 +50,9 @@ export class CustomWidgetsController {
   }
 
   @Get(':id/preview')
-  @ApiOperation({ summary: 'Get custom widget with rendered data' })
+  @ApiOperation({ summary: 'Get custom widget with rendered data (uses cached data, no external fetch)' })
   getWithData(@Param('id', ParseIntPipe) id: number) {
-    return this.customWidgetsService.getWithData(id);
+    return this.customWidgetsService.getWithData(id, true);
   }
 
   @Patch(':id')

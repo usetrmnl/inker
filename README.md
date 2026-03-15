@@ -1,6 +1,6 @@
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://buymeacoffee.com/wojo_o)
 
-# Inker v0.2.1
+# Inker v0.2.1.1
 
 Self-hosted e-ink device management system for [TRMNL](https://usetrmnl.com/) devices and BYOD e-ink displays. Design screens, create custom widgets, and manage your displays from a modern web interface.
 
@@ -115,7 +115,7 @@ docker compose up -d
 ## Testing
 
 ```bash
-cd backend && bun test      # 375 tests
+cd backend && bun test      # 395 tests
 cd frontend && bun run test  # 19 tests
 ```
 
