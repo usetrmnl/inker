@@ -82,15 +82,19 @@ export class ApiController {
     }
 
     // Fallback: derive from request headers (for LAN access where IP varies)
-    let host = headers['host'] || headers['Host'] || 'localhost:3002';
-    const protocol = headers['x-forwarded-proto'] || 'http';
+    let host = headers['host'] || headers['Host'] || 'localhost';
+    const protocol = headers['x-forwarded-proto']
+      || (headers['x-forwarded-ssl'] === 'on' ? 'https' : null)
+      || (host.endsWith(':443') ? 'https' : null)
+      || 'http';
 
-    // Ensure INKER_PORT is used when it's non-standard (handles Docker port mapping)
-    const inkerPort = this.configService.get<number>('inkerPort', 80);
-    if (inkerPort && inkerPort !== 80) {
-      // Strip any existing port from host and replace with INKER_PORT
-      const hostname = host.split(':')[0];
-      host = `${hostname}:${inkerPort}`;
+    // If Host header already has a port, trust it (device/browser sent the correct port)
+    // If Host has no port and INKER_PORT is non-standard, append it
+    if (!host.includes(':')) {
+      const inkerPort = this.configService.get<number>('inkerPort', 80);
+      if (inkerPort && inkerPort !== 80) {
+        host = `${host}:${inkerPort}`;
+      }
     }
 
     return `${protocol}://${host}`;

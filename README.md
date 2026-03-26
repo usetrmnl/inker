@@ -1,6 +1,6 @@
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://buymeacoffee.com/wojo_o)
 
-# Inker v0.3.0
+# Inker v0.3.1
 
 Self-hosted e-ink device management server built for the homelab community. Works with [TRMNL](https://usetrmnl.com/) devices (supports firmware 1.7.8) and any BYOD e-ink display. Design screens, create custom widgets with live data from your local network, and manage your displays from a modern web interface.
 
@@ -81,6 +81,7 @@ Open **http://your-server-ip** and log in with PIN `1111`.
 |----------|-------------|---------|
 | `ADMIN_PIN` | Login PIN | `1111` |
 | `TZ` | Timezone for widgets | `UTC` |
+| `INKER_PORT` | External port (for custom port mapping, e.g. `INKER_PORT=800`) | `80` |
 | `CORS_ORIGINS` | Allowed CORS origins (comma-separated, or `*` for all) | same-origin |
 
 Pass with `-e`:
