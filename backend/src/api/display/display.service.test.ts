@@ -74,41 +74,6 @@ describe('DisplayService', () => {
     });
   });
 
-  describe('hasTimeSensitiveWidgets (private)', () => {
-    const hasTimeSensitive = (design: any) =>
-      (service as any).hasTimeSensitiveWidgets(design);
-
-    it('should return false for null/empty design', () => {
-      expect(hasTimeSensitive(null)).toBe(false);
-      expect(hasTimeSensitive({})).toBe(false);
-      expect(hasTimeSensitive({ widgets: [] })).toBe(false);
-    });
-
-    it('should return true for clock widget', () => {
-      expect(hasTimeSensitive({
-        widgets: [{ template: { name: 'clock' } }],
-      })).toBe(true);
-    });
-
-    it('should return true for countdown widget', () => {
-      expect(hasTimeSensitive({
-        widgets: [{ template: { name: 'countdown' } }],
-      })).toBe(true);
-    });
-
-    it('should return true for date widget', () => {
-      expect(hasTimeSensitive({
-        widgets: [{ template: { name: 'date' } }],
-      })).toBe(true);
-    });
-
-    it('should return false for non-time widgets', () => {
-      expect(hasTimeSensitive({
-        widgets: [{ template: { name: 'text' } }, { template: { name: 'weather' } }],
-      })).toBe(false);
-    });
-  });
-
   describe('hasClockWidget (private)', () => {
     const hasClock = (design: any) => (service as any).hasClockWidget(design);
 
@@ -127,59 +92,78 @@ describe('DisplayService', () => {
   });
 
   describe('getRefreshRateForScreen (private)', () => {
-    const getRate = (screen: any, deviceRate: number, immediate: boolean, remaining: number) =>
-      (service as any).getRefreshRateForScreen(screen, deviceRate, immediate, remaining);
+    const getRate = (screen: any, deviceRate: number, immediate: boolean, totalDuration: number = Infinity) =>
+      (service as any).getRefreshRateForScreen(screen, deviceRate, immediate, totalDuration);
 
     it('should return 1 when shouldRefreshImmediately is true', () => {
-      expect(getRate({}, 900, true, 60)).toBe(1);
+      expect(getRate({}, 900, true)).toBe(1);
     });
 
     it('should return device refresh rate for normal screens', () => {
       const screen = { screenDesign: { widgets: [{ template: { name: 'text' } }] } };
-      expect(getRate(screen, 900, false, 1000)).toBe(900);
+      expect(getRate(screen, 900, false)).toBe(900);
     });
 
-    it('should return 60 for time-sensitive (non-clock) widgets', () => {
+    it('should return device refresh rate for countdown widgets (no override)', () => {
       const screen = { screenDesign: { widgets: [{ template: { name: 'countdown' } }] } };
-      expect(getRate(screen, 900, false, 1000)).toBe(60);
+      expect(getRate(screen, 900, false)).toBe(900);
+    });
+
+    it('should return device refresh rate for date widgets (not time-sensitive)', () => {
+      const screen = { screenDesign: { widgets: [{ template: { name: 'date' } }] } };
+      expect(getRate(screen, 900, false)).toBe(900);
     });
 
     it('should calculate clock refresh based on seconds until next minute', () => {
       const screen = { screenDesign: { widgets: [{ template: { name: 'clock' } }] } };
-      const rate = getRate(screen, 900, false, 1000);
+      const rate = getRate(screen, 900, false);
       // Should be between 4 (0 seconds into minute + 3 buffer) and 63 (59 seconds + 3 + cap)
       expect(rate).toBeGreaterThanOrEqual(4);
       expect(rate).toBeLessThanOrEqual(63);
     });
 
-    it('should cap at remaining time when remaining is smaller', () => {
+    it('should cap at total playlist duration when refresh rate exceeds it', () => {
       const screen = { screenDesign: { widgets: [{ template: { name: 'text' } }] } };
-      expect(getRate(screen, 900, false, 30)).toBe(30);
+      // 3 screens × 300s = 900s total, device wants 1800s → capped to 900s
+      expect(getRate(screen, 1800, false, 900)).toBe(900);
+    });
+
+    it('should not cap when device refresh rate is within total playlist duration', () => {
+      const screen = { screenDesign: { widgets: [{ template: { name: 'text' } }] } };
+      // Device wants 900s, total playlist is 2700s → no cap needed
+      expect(getRate(screen, 900, false, 2700)).toBe(900);
+    });
+
+    it('should not cap for single-screen playlists (Infinity)', () => {
+      const screen = { screenDesign: { widgets: [{ template: { name: 'text' } }] } };
+      expect(getRate(screen, 900, false, Infinity)).toBe(900);
     });
   });
 
   describe('getNextRefreshTimestamp', () => {
     it('should return ~1 second from now when immediate', () => {
       const screen = {};
-      const ts = service.getNextRefreshTimestamp(screen, 900, true, 60);
+      const ts = service.getNextRefreshTimestamp(screen, 900, true, Infinity);
       expect(ts).not.toBeNull();
       expect(ts! - Date.now()).toBeLessThanOrEqual(2000);
     });
 
     it('should return device refresh rate ms from now for normal screens', () => {
       const screen = { screenDesign: { widgets: [{ template: { name: 'text' } }] } };
-      const ts = service.getNextRefreshTimestamp(screen, 900, false, 1000);
+      const ts = service.getNextRefreshTimestamp(screen, 900, false, Infinity);
       const diff = ts! - Date.now();
       // Should be approximately 900 seconds from now
       expect(diff).toBeGreaterThan(899000);
       expect(diff).toBeLessThan(901000);
     });
 
-    it('should cap by remaining time', () => {
+    it('should cap at total playlist duration', () => {
       const screen = { screenDesign: { widgets: [{ template: { name: 'text' } }] } };
-      const ts = service.getNextRefreshTimestamp(screen, 900, false, 30);
+      const ts = service.getNextRefreshTimestamp(screen, 1800, false, 900);
       const diff = ts! - Date.now();
-      expect(diff).toBeLessThanOrEqual(31000);
+      // Should be approximately 900 seconds (total playlist duration), not 1800
+      expect(diff).toBeGreaterThan(899000);
+      expect(diff).toBeLessThan(901000);
     });
   });
 

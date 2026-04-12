@@ -147,6 +147,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=oven/bun:1-slim /usr/local/bin/bun /usr/local/bin/bun
 RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
 
+# Node.js binary for Prisma CLI (Bun's baseline mode crashes on non-AVX2 hardware)
+COPY --from=node:22-slim /usr/local/bin/node /usr/local/bin/node
+
 # Puppeteer configuration
 ENV PUPPETEER_EXECUTABLE_PATH=/opt/chrome-headless-shell-linux64/chrome-headless-shell
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true

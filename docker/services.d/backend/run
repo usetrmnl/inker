@@ -23,9 +23,10 @@ chown -R inker:inker /app/uploads /app/logs /tmp/inker-home
 export HOME=/tmp/inker-home
 
 # Run database migrations as non-root user
+# Uses node instead of bunx to avoid Bun WASM crash on non-AVX2 hardware (Synology, older CPUs)
 cd /app
 echo "[backend] Running database migrations..."
-s6-setuidgid inker bunx prisma db push --skip-generate 2>&1 || echo "[backend] Warning: Database migration had issues, check logs"
+s6-setuidgid inker node ./node_modules/prisma/build/index.js db push --skip-generate 2>&1 || echo "[backend] Warning: Database migration had issues, check logs"
 
 # Start backend as non-root user
 echo "[backend] Starting Inker backend..."

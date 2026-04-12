@@ -2555,7 +2555,24 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
       this.logger.debug(`  Widget ${i}: ${w.template.name} at (${w.x}, ${w.y}) size ${w.width}x${w.height}${crossesEdge ? ' [CROSSES EDGE]' : ''}`);
     });
 
-    // Generate HTML for all widgets
+    // Pre-fetch data for custom widgets to avoid duplicate API calls
+    // When multiple custom widgets share a data source, this ensures only one external fetch
+    const seenDataSources = new Set<number>();
+    for (const widget of widgets) {
+      if (widget.template.name === 'custom-widget-base') {
+        const cwId = (widget.config as any)?.customWidgetId as number | undefined;
+        if (cwId) {
+          const cw = await this.customWidgetsService.findOne(cwId).catch(() => null);
+          if (cw?.dataSourceId && !seenDataSources.has(cw.dataSourceId)) {
+            seenDataSources.add(cw.dataSourceId);
+            // getWithData warms the data source cache in DB
+            await this.customWidgetsService.getWithData(cwId).catch(() => null);
+          }
+        }
+      }
+    }
+
+    // Generate HTML for all widgets (custom widget data is already cached)
     const widgetsHtml = await Promise.all(
       widgets.map(widget => this.generateWidgetHtml(widget, deviceContext))
     );

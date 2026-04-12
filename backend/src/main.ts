@@ -81,7 +81,7 @@ async function bootstrap() {
     const config = new DocumentBuilder()
       .setTitle('Inker API')
       .setDescription('API documentation for Inker e-ink device management server')
-      .setVersion('0.3.1')
+      .setVersion('0.3.2')
       .addBearerAuth()
       .addApiKey({ type: 'apiKey', name: 'X-Device-Key', in: 'header' }, 'device-key')
       .build();

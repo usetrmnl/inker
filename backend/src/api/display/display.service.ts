@@ -9,8 +9,6 @@ import { DefaultScreenService } from './default-screen.service';
 import { ScreenRendererService } from '../../screen-designer/services/screen-renderer.service';
 import { PluginsService } from '../../plugins/plugins.service';
 import { SetupService } from '../setup/setup.service';
-import * as fs from 'fs';
-import * as path from 'path';
 
 /**
  * Device metrics from headers
@@ -277,7 +275,14 @@ export class DisplayService {
       };
     }
 
-    const { item: currentScreen, remainingTime } = currentScreenResult;
+    const { item: currentScreen } = currentScreenResult;
+
+    // Calculate total playlist duration for refresh rate capping
+    // This prevents the device from getting stuck on one screen when refreshRate >= totalDuration
+    const playlistItems = device.playlist.items;
+    const totalPlaylistDuration = playlistItems.length > 1
+      ? playlistItems.reduce((sum: number, item: any) => sum + (item.duration || 60), 0)
+      : Infinity; // Single screen: no rotation cap needed
 
     // Generate unique screen ID to detect screen changes
     const currentScreenId = currentScreen.screenDesign
@@ -300,14 +305,14 @@ export class DisplayService {
       });
     }
 
-    // Calculate refresh rate based on current screen content and remaining playlist time
-    // Time-sensitive widgets (clock, countdown, date) get 60s refresh instead of device default
-    // But never exceed the remaining time for the current screen in the playlist
+    // Calculate refresh rate based on current screen content
+    // Clock widgets get minute-synced refresh, countdown widgets get 60s refresh
+    // Capped at total playlist duration to prevent stuck screens
     const effectiveRefreshRate = this.getRefreshRateForScreen(
       currentScreen,
       device.refreshRate,
       shouldRefreshImmediately,
-      remainingTime,
+      totalPlaylistDuration,
     );
 
     // Calculate the next refresh timestamp for minute-synchronized clock updates
@@ -315,7 +320,7 @@ export class DisplayService {
       currentScreen,
       device.refreshRate,
       shouldRefreshImmediately,
-      remainingTime,
+      totalPlaylistDuration,
     );
 
     // Handle both regular screens and designed screens
@@ -347,57 +352,9 @@ export class DisplayService {
         wifi: updatedDevice.wifi,
       };
     } else if (currentScreen.screenDesign) {
-      // Designed screen - check for pre-captured pixel-perfect image first
-      const captureFilename = `capture_${currentScreen.screenDesign.id}.png`;
-      const capturePath = path.join(process.cwd(), 'uploads', 'captures', captureFilename);
-      const captureExists = fs.existsSync(capturePath);
-
+      // Designed screen - always render fresh via the render endpoint
+      // This ensures consistent URLs and up-to-date content for all widget types
       const timestamp = Date.now();
-
-      // Check if screen has dynamic widgets that need fresh rendering
-      // Dynamic widgets: clock, date, countdown, weather (change over time)
-      const dynamicTemplateNames = ['clock', 'date', 'countdown', 'weather'];
-      const hasDynamicWidgets = currentScreen.screenDesign.widgets?.some(
-        (widget: { template?: { name?: string } }) =>
-          widget.template?.name && dynamicTemplateNames.includes(widget.template.name)
-      );
-
-      if (captureExists && !hasDynamicWidgets) {
-        // USE CAPTURE FILE - exact pixels from designer (pixel-perfect)
-        // Only for static screens without dynamic widgets
-        const captureUrl = `${apiUrl}/uploads/captures/${captureFilename}?t=${timestamp}`;
-        const dynamicFilename = `capture-${currentScreen.screenDesign.id}-${timestamp}.png`;
-
-        this.logger.debug(
-          `Serving CAPTURED screen "${currentScreen.screenDesign.name}" to device ${device.name} (pixel-perfect, refresh: ${effectiveRefreshRate}s)`,
-        );
-
-        return {
-          status: 0,
-          image_url: captureUrl,
-          filename: dynamicFilename,
-          image_url_timeout: 0,
-          image_data: undefined,
-          firmware_url: firmwareUrl,
-          update_firmware: !!firmwareUrl,
-          refresh_rate: effectiveRefreshRate,
-          reset_firmware: false,
-          special_function: '',
-          temperature_profile: 'default',
-          maximum_compatibility: screenChanged,
-          refresh_at: nextRefreshAt,
-          battery: updatedDevice.battery,
-          wifi: updatedDevice.wifi,
-        };
-      }
-
-      // RENDER FRESH: No capture, has dynamic widgets, or needs current time
-      // Dynamic widgets (clock, countdown, weather) must be rendered fresh each time
-      if (hasDynamicWidgets) {
-        this.logger.debug(
-          `Screen "${currentScreen.screenDesign.name}" has dynamic widgets - rendering fresh`,
-        );
-      }
 
       const queryParams = new URLSearchParams({
         t: timestamp.toString(),
@@ -417,7 +374,7 @@ export class DisplayService {
       const dynamicFilename = `design-${currentScreen.screenDesign.id}-${timestamp}.png`;
 
       this.logger.debug(
-        `Serving RENDERED screen "${currentScreen.screenDesign.name}" to device ${device.name} (no capture, refresh: ${effectiveRefreshRate}s, next_at: ${nextRefreshAt ? new Date(nextRefreshAt).toISOString() : 'N/A'})`,
+        `Serving screen "${currentScreen.screenDesign.name}" to device ${device.name} (refresh: ${effectiveRefreshRate}s, next_at: ${nextRefreshAt ? new Date(nextRefreshAt).toISOString() : 'N/A'})`,
       );
 
       return {
@@ -593,25 +550,6 @@ export class DisplayService {
   }
 
   /**
-   * Check if a screen design contains time-sensitive widgets (clock, countdown, date)
-   * These widgets require more frequent refresh to stay accurate
-   */
-  private hasTimeSensitiveWidgets(screenDesign: any): boolean {
-    if (!screenDesign?.widgets || !Array.isArray(screenDesign.widgets)) {
-      return false;
-    }
-
-    // Widget template names that are time-sensitive and need frequent refresh
-    const timeSensitiveWidgets = ['clock', 'countdown', 'date'];
-
-    return screenDesign.widgets.some(
-      (widget: any) =>
-        widget.template &&
-        timeSensitiveWidgets.includes(widget.template.name),
-    );
-  }
-
-  /**
    * Check if a screen design contains a clock widget
    */
   private hasClockWidget(screenDesign: any): boolean {
@@ -625,16 +563,16 @@ export class DisplayService {
   }
 
   /**
-   * Get the appropriate refresh rate based on screen content and playlist rotation
+   * Get the appropriate refresh rate based on screen content
    * For clock widgets, returns the exact seconds until next minute boundary
    * This ensures the device wakes up exactly when the minute changes
-   * BUT never exceeds the remaining time for the current screen in the playlist
+   * Capped at totalPlaylistDuration to prevent getting stuck on one screen
    */
   private getRefreshRateForScreen(
     currentScreen: any,
     deviceRefreshRate: number,
     shouldRefreshImmediately: boolean,
-    remainingTime: number,
+    totalPlaylistDuration: number,
   ): number {
     // If refresh is pending, return 1 second to force immediate update
     if (shouldRefreshImmediately) {
@@ -663,21 +601,15 @@ export class DisplayService {
       this.logger.debug(
         `Clock widget - calculated refresh ${refreshRate}s (${secondsUntilNextMinute}s until minute + ${bufferSeconds}s buffer)`,
       );
-    } else if (currentScreen?.screenDesign && this.hasTimeSensitiveWidgets(currentScreen.screenDesign)) {
-      // For other time-sensitive widgets (date, countdown), use 60 second refresh
-      refreshRate = 60;
-      this.logger.debug(
-        `Screen design "${currentScreen.screenDesign.name}" has time-sensitive widgets - using 60s refresh`,
-      );
     }
 
-    // IMPORTANT: Cap refresh rate by remaining time in playlist rotation
-    // This ensures screens rotate according to their duration in the playlist
-    if (remainingTime > 0 && remainingTime < refreshRate) {
+    // Cap at total playlist duration to ensure device sees all screens in rotation
+    // Unlike the old per-screen remainingTime cap, this is constant and predictable
+    if (totalPlaylistDuration > 0 && totalPlaylistDuration < refreshRate) {
       this.logger.debug(
-        `Capping refresh rate from ${refreshRate}s to ${remainingTime}s (playlist rotation)`,
+        `Capping refresh rate from ${refreshRate}s to ${totalPlaylistDuration}s (total playlist duration)`,
       );
-      refreshRate = remainingTime;
+      refreshRate = totalPlaylistDuration;
     }
 
     // Floor: never go below 10 seconds to prevent rapid polling from edge cases
@@ -692,13 +624,13 @@ export class DisplayService {
    * Calculate the exact timestamp when the device should refresh next
    * For clock widgets, this is synchronized to the next minute boundary
    * This ensures the clock updates exactly when the minute changes (e.g., 20:00 -> 20:01)
-   * BUT never exceeds the remaining time for the current screen in the playlist
+   * Capped at totalPlaylistDuration to prevent getting stuck on one screen
    */
   getNextRefreshTimestamp(
     currentScreen: any,
     deviceRefreshRate: number,
     shouldRefreshImmediately: boolean,
-    remainingTime: number,
+    totalPlaylistDuration: number,
   ): number | null {
     // If refresh is pending, refresh immediately
     if (shouldRefreshImmediately) {
@@ -723,18 +655,12 @@ export class DisplayService {
       this.logger.debug(
         `Clock widget detected - calculated refresh in ${Math.round(refreshMs / 1000)}s (after minute boundary)`,
       );
-    } else if (currentScreen?.screenDesign && this.hasTimeSensitiveWidgets(currentScreen.screenDesign)) {
-      // For other time-sensitive widgets, use 60 second intervals
-      refreshMs = 60 * 1000;
     }
 
-    // IMPORTANT: Cap by remaining time in playlist rotation
-    const remainingTimeMs = remainingTime * 1000;
-    if (remainingTimeMs > 0 && remainingTimeMs < refreshMs) {
-      this.logger.debug(
-        `Capping next refresh timestamp from ${Math.round(refreshMs / 1000)}s to ${remainingTime}s (playlist rotation)`,
-      );
-      refreshMs = remainingTimeMs;
+    // Cap at total playlist duration to ensure device sees all screens
+    const totalPlaylistDurationMs = totalPlaylistDuration * 1000;
+    if (totalPlaylistDurationMs > 0 && totalPlaylistDurationMs < refreshMs) {
+      refreshMs = totalPlaylistDurationMs;
     }
 
     return Date.now() + refreshMs;

@@ -35,6 +35,10 @@ export interface FieldMeta {
 export class DataSourcesService {
   private readonly logger = new Logger(DataSourcesService.name);
 
+  // Deduplicates concurrent external API fetches for the same data source
+  // When multiple widgets share a data source, only one fetch runs at a time
+  private pendingFetches = new Map<number, Promise<unknown>>();
+
   constructor(
     private prisma: PrismaService,
     private settingsService: SettingsService,
@@ -860,29 +864,49 @@ export class DataSourcesService {
         dataSource.refreshInterval * 1000;
 
     if (isStale || !dataSource.lastData) {
+      // Deduplicate concurrent fetches — if a fetch for this ID is already
+      // in-flight, reuse that Promise instead of making another API call
+      const pending = this.pendingFetches.get(id);
+      if (pending) {
+        return pending;
+      }
+
+      const fetchPromise = this.fetchAndCache(id, dataSource);
+      this.pendingFetches.set(id, fetchPromise);
       try {
-        const data = await this.fetchDataFromSource({
-          ...dataSource,
-          headers: dataSource.headers as object | null,
-        });
-        await this.prisma.dataSource.update({
-          where: { id },
-          data: {
-            lastData: data as object,
-            lastFetchedAt: new Date(),
-            lastError: null,
-          },
-        });
-        return data;
-      } catch (error) {
-        // Return cached data if available, even if stale
-        if (dataSource.lastData) {
-          return dataSource.lastData;
-        }
-        throw error;
+        return await fetchPromise;
+      } finally {
+        this.pendingFetches.delete(id);
       }
     }
 
     return dataSource.lastData;
+  }
+
+  /**
+   * Fetch data from external source and update DB cache
+   */
+  private async fetchAndCache(id: number, dataSource: any): Promise<unknown> {
+    try {
+      const data = await this.fetchDataFromSource({
+        ...dataSource,
+        headers: dataSource.headers as object | null,
+      });
+      await this.prisma.dataSource.update({
+        where: { id },
+        data: {
+          lastData: data as object,
+          lastFetchedAt: new Date(),
+          lastError: null,
+        },
+      });
+      return data;
+    } catch (error) {
+      // Return cached data if available, even if stale
+      if (dataSource.lastData) {
+        return dataSource.lastData;
+      }
+      throw error;
+    }
   }
 }
