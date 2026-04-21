@@ -1,20 +1,29 @@
 services:
   inker:
-    build: .
+    build:
+      context: .
+      args:
+        DB_PROVIDER: ${DB_PROVIDER:-sqlite}
+        VITE_AUTH_ENABLED: ${VITE_AUTH_ENABLED:-false}
     image: ${INKER_IMAGE:-inker:latest}
     container_name: inker
     restart: unless-stopped
     ports:
       - "${INKER_PORT:-80}:80"
     volumes:
-      - postgres_data:/var/lib/postgresql/17/main
-      - redis_data:/data
-      - uploads_data:/app/uploads
+      - ./data/postgres:/var/lib/postgresql/17/main
+      - ./data/db:/app/data
+      - ./data/redis:/data
+      - ./data/uploads:/app/uploads
     environment:
       TZ: ${TZ:-UTC}
       ADMIN_PIN: "${ADMIN_PIN:-1111}"
       INKER_PORT: "${INKER_PORT:-80}"
       DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-UTC}
+      DB_PROVIDER: ${DB_PROVIDER:-sqlite}
+      DATABASE_URL: ${DATABASE_URL:-file:/app/data/inker.db}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      VITE_AUTH_ENABLED: ${VITE_AUTH_ENABLED:-false}
     healthcheck:
       test: ["CMD", "bun", "-e", "const r=await fetch('http://127.0.0.1/health');process.exit(r.ok?0:1)"]
       interval: 30s
@@ -22,10 +31,3 @@ services:
       retries: 3
       start_period: 60s
 
-volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-  uploads_data:
-    driver: local

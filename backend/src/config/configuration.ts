@@ -9,7 +9,12 @@ export const configuration = () => ({
   inkerPort: parseInt(process.env.INKER_PORT || '80', 10),
 
   database: {
+    provider: process.env.DB_PROVIDER || 'postgresql',
     url: process.env.DATABASE_URL,
+  },
+
+  auth: {
+    enabled: process.env.AUTH_ENABLED !== 'false',
   },
 
   redis: {

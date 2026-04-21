@@ -7,7 +7,11 @@ export const validationSchema = Joi.object({
   PORT: Joi.number().default(3000),
 
   // Database
+  DB_PROVIDER: Joi.string().valid('postgresql', 'sqlite').default('postgresql'),
   DATABASE_URL: Joi.string().required(),
+
+  // Auth bypass
+  AUTH_ENABLED: Joi.boolean().default(true),
 
   // Redis
   REDIS_HOST: Joi.string().default('localhost'),

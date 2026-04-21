@@ -12,12 +12,19 @@ COPY frontend/package.json frontend/bun.lock* ./
 RUN bun install --frozen-lockfile
 
 COPY frontend/ .
+
+# Accept optional build argument to toggle authentication
+ARG VITE_AUTH_ENABLED
+ENV VITE_AUTH_ENABLED=${VITE_AUTH_ENABLED}
+
 RUN bun run build
 
 # =============================================================================
 # Stage 2: Install backend production dependencies
 # =============================================================================
 FROM oven/bun:1-slim AS backend-install
+ARG DB_PROVIDER=postgresql
+ENV DB_PROVIDER=${DB_PROVIDER}
 
 WORKDIR /app
 
@@ -28,9 +35,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 
 COPY backend/package.json backend/bun.lock* ./
 COPY backend/prisma ./prisma/
+COPY backend/scripts ./scripts/
 
 # Install all deps → generate prisma → reinstall production-only → prune
 RUN bun install --frozen-lockfile && \
+    node scripts/set-db-provider.js && \
     node ./node_modules/prisma/build/index.js generate && \
     cp -r node_modules/.prisma /tmp/.prisma && \
     rm -rf node_modules && \
@@ -58,6 +67,8 @@ RUN bun install --frozen-lockfile && \
 # Stage 3: Build backend
 # =============================================================================
 FROM oven/bun:1-slim AS backend-builder
+ARG DB_PROVIDER=postgresql
+ENV DB_PROVIDER=${DB_PROVIDER}
 
 WORKDIR /app
 
@@ -69,7 +80,8 @@ COPY backend/package.json backend/bun.lock* ./
 RUN bun install --frozen-lockfile
 
 COPY backend/prisma ./prisma/
-RUN node ./node_modules/prisma/build/index.js generate
+COPY backend/scripts ./scripts/
+RUN node scripts/set-db-provider.js && node ./node_modules/prisma/build/index.js generate && node scripts/fix-prisma-types.js
 
 COPY backend/ .
 RUN bun run build
@@ -80,11 +92,16 @@ RUN bun run build
 FROM debian:trixie-slim AS production
 
 ARG S6_OVERLAY_VERSION=3.2.1.0
+ARG DB_PROVIDER=postgresql
+ENV DB_PROVIDER=${DB_PROVIDER}
 
 # Install all system packages in one layer
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # PostgreSQL
-    postgresql-17 \
+RUN apt-get update && \
+    # Install postgresql only if DB_PROVIDER is postgresql
+    if [ "$DB_PROVIDER" = "postgresql" ]; then \
+        apt-get install -y --no-install-recommends postgresql-17; \
+    fi && \
+    apt-get install -y --no-install-recommends \
     # Redis
     redis-server \
     # Nginx
@@ -119,11 +136,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm /tmp/s6-noarch.tar.xz /tmp/s6-x86_64.tar.xz && \
     # Install PostgreSQL 15 from PGDG for data migration (15→17) support
     # Existing users upgrading from bookworm need PG 15 binaries to dump their data
-    echo "deb http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-    wget -qO /etc/apt/trusted.gpg.d/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
-    apt-get update -qq && \
-    apt-get install -y -qq --no-install-recommends postgresql-15 >/dev/null 2>&1 && \
-    rm -rf /var/lib/postgresql/15 /etc/apt/sources.list.d/pgdg.list && \
+    if [ "$DB_PROVIDER" = "postgresql" ]; then \
+        echo "deb http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+        wget -qO /etc/apt/trusted.gpg.d/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+        apt-get update -qq && \
+        apt-get install -y -qq --no-install-recommends postgresql-15 >/dev/null 2>&1 && \
+        rm -rf /var/lib/postgresql/15 /etc/apt/sources.list.d/pgdg.list; \
+    fi && \
     # Remove build-only tools normally
     apt-get purge -y unzip xz-utils wget && apt-get autoremove -y && \
     # Force-remove transitive deps not needed at runtime
@@ -139,7 +158,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
            /usr/share/info /usr/share/lintian /usr/share/X11/xkb \
            /var/cache/debconf/*-old && \
     # Remove auto-created PostgreSQL cluster (will be initialized on first run)
-    rm -rf /var/lib/postgresql/17/main/*
+    if [ "$DB_PROVIDER" = "postgresql" ]; then \
+        rm -rf /var/lib/postgresql/17/main/*; \
+    fi
 
 # Install Bun runtime (copy from build image)
 COPY --from=oven/bun:1-slim /usr/local/bin/bun /usr/local/bin/bun
@@ -171,7 +192,7 @@ WORKDIR /app
 COPY --from=backend-install /app/node_modules ./node_modules
 
 # Copy Prisma schema and generated client
-COPY backend/prisma ./prisma/
+COPY --from=backend-install /app/prisma ./prisma/
 COPY --from=backend-install /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=backend-install /app/node_modules/@prisma ./node_modules/@prisma
 
@@ -200,9 +221,12 @@ RUN chmod +x /etc/cont-init.d/* && \
 
 # Create required directories
 RUN mkdir -p /app/uploads/screens /app/uploads/firmware /app/uploads/widgets \
-    /app/uploads/captures /app/uploads/drawings /app/logs \
-    /data /var/lib/postgresql/17/main /run/postgresql && \
-    chown -R postgres:postgres /var/lib/postgresql /run/postgresql
+    /app/uploads/captures /app/uploads/drawings /app/logs /app/data \
+    /data && \
+    if [ "$DB_PROVIDER" = "postgresql" ]; then \
+        mkdir -p /var/lib/postgresql/17/main /run/postgresql && \
+        chown -R postgres:postgres /var/lib/postgresql /run/postgresql; \
+    fi
 
 # Create non-root user for backend process
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin inker && \

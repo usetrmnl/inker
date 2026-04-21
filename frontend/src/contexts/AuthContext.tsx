@@ -2,6 +2,7 @@
 import { createContext, useContext, useReducer, type ReactNode, useEffect } from 'react';
 import type { AuthState } from '../types';
 import { authService } from '../services/api';
+import { config } from '../config';
 
 // Session storage key
 const SESSION_KEY = 'inker_session';
@@ -22,8 +23,8 @@ type AuthAction =
 // Initial state - simplified without user
 const initialState: AuthState = {
   token: null,
-  isAuthenticated: false,
-  isLoading: true,
+  isAuthenticated: !config.authEnabled,
+  isLoading: config.authEnabled,
   error: null,
 };
 
@@ -92,6 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restore session on mount
   useEffect(() => {
+    if (!config.authEnabled) {
+      return;
+    }
+
     const token = localStorage.getItem(SESSION_KEY);
 
     if (token) {

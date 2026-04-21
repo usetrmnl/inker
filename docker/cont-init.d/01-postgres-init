@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+if [ "$DB_PROVIDER" != "postgresql" ]; then
+  echo "[init] PostgreSQL disabled, skipping init..."
+  exit 0
+fi
+
 PGDATA=/var/lib/postgresql/17/main
 PG17_BIN=/usr/lib/postgresql/17/bin
 PG15_BIN=/usr/lib/postgresql/15/bin

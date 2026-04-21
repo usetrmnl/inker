@@ -1,5 +1,6 @@
 import { Injectable, ExecutionContext, CanActivate, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
 import { PinAuthService } from '../pin-auth.service';
 
@@ -13,9 +14,16 @@ export class PinAuthGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private pinAuthService: PinAuthService,
+    private configService: ConfigService,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
+    // Check if auth is disabled via environment variables
+    const authEnabled = this.configService.get<boolean>('auth.enabled');
+    if (authEnabled === false) {
+      return true;
+    }
+
     // Check if route is marked as public
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),

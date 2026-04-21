@@ -25,6 +25,62 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.logger.debug(`Query: ${e.query} | Duration: ${e.duration}ms`);
       });
     }
+
+    // Apply SQLite JSON fallback middleware
+    if (process.env.DB_PROVIDER === 'sqlite') {
+      const jsonFields = new Set([
+        'config', 'headers', 'lastData', 'metadata', 'defaultConfig',
+        'dataHeaders', 'settingsSchema', 'settings', 'settingsEncrypted'
+      ]);
+
+      const stringifyJsonFields = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return;
+        for (const key of Object.keys(obj)) {
+          if (jsonFields.has(key)) {
+            if (typeof obj[key] !== 'string' && obj[key] !== null && obj[key] !== undefined) {
+              obj[key] = JSON.stringify(obj[key]);
+            }
+          } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+            stringifyJsonFields(obj[key]);
+          }
+        }
+      };
+
+      const parseJsonFields = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return;
+        for (const key of Object.keys(obj)) {
+          if (jsonFields.has(key)) {
+            if (typeof obj[key] === 'string') {
+              try {
+                obj[key] = JSON.parse(obj[key]);
+              } catch (e) {}
+            }
+          } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+            parseJsonFields(obj[key]);
+          }
+        }
+      };
+
+      this.$use(async (params, next) => {
+        if (params.args) {
+          if (params.args.data) stringifyJsonFields(params.args.data);
+          if (params.args.create) stringifyJsonFields(params.args.create);
+          if (params.args.update) stringifyJsonFields(params.args.update);
+          if (params.args.where) stringifyJsonFields(params.args.where); // For complex where clauses
+        }
+
+        const result = await next(params);
+
+        if (result) {
+          if (Array.isArray(result)) {
+            result.forEach(parseJsonFields);
+          } else {
+            parseJsonFields(result);
+          }
+        }
+        return result;
+      });
+    }
   }
 
   /**

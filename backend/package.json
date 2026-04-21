@@ -13,8 +13,8 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:cov": "bun test --coverage",
-    "prisma:generate": "bunx prisma generate",
-    "prisma:migrate": "bunx prisma migrate dev",
+    "prisma:generate": "node scripts/set-db-provider.js && bunx prisma generate && node scripts/fix-prisma-types.js",
+    "prisma:migrate": "node scripts/set-db-provider.js && bunx prisma migrate dev && node scripts/fix-prisma-types.js",
     "prisma:studio": "bunx prisma studio",
     "prisma:seed": "bun run prisma/seed.ts",
     "db:seed": "bun run prisma:seed"

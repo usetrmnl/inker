@@ -1,12 +1,14 @@
 #!/command/with-contenv sh
 exec 2>&1
 
-# Wait for PostgreSQL to be ready
-echo "[backend] Waiting for PostgreSQL..."
-until su - postgres -c "pg_isready -q" 2>/dev/null; do
-    sleep 1
-done
-echo "[backend] PostgreSQL is ready"
+# Wait for PostgreSQL to be ready if configured
+if [ "$DB_PROVIDER" = "postgresql" ]; then
+  echo "[backend] Waiting for PostgreSQL..."
+  until su - postgres -c "pg_isready -q" 2>/dev/null; do
+      sleep 1
+  done
+  echo "[backend] PostgreSQL is ready"
+fi
 
 # Wait for Redis to be ready
 echo "[backend] Waiting for Redis..."
@@ -16,8 +18,8 @@ done
 echo "[backend] Redis is ready"
 
 # Create required directories and set ownership for non-root backend
-mkdir -p /app/uploads/screens /app/uploads/firmware /app/uploads/widgets /app/uploads/captures /app/uploads/drawings /app/logs /tmp/inker-home
-chown -R inker:inker /app/uploads /app/logs /tmp/inker-home
+mkdir -p /app/uploads/screens /app/uploads/firmware /app/uploads/widgets /app/uploads/captures /app/uploads/drawings /app/logs /tmp/inker-home /app/data
+chown -R inker:inker /app/uploads /app/logs /tmp/inker-home /app/data
 
 # Set HOME for the inker user (Puppeteer needs a writable home for config)
 export HOME=/tmp/inker-home

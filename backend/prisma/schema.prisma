@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -124,7 +124,7 @@ model Extension {
   name        String
   description String?
   type        String   // webhook, polling, custom
-  config      Json     // JSON configuration
+  config      String     // JSON configuration
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -144,12 +144,12 @@ model DataSource {
   type            String    // "json" | "rss"
   url             String    // API endpoint or RSS feed URL
   method          String    @default("GET") // HTTP method for JSON APIs
-  headers         Json?     // Custom headers (e.g., API keys)
+  headers         String?     // Custom headers (e.g., API keys)
   refreshInterval Int       @default(300) @map("refresh_interval") // Seconds between fetches
   jsonPath        String?   @map("json_path") // JSONPath expression to extract data
   isActive        Boolean   @default(true) @map("is_active")
   lastFetchedAt   DateTime? @map("last_fetched_at")
-  lastData        Json?     @map("last_data") // Cached response data
+  lastData        String?     @map("last_data") // Cached response data
   lastError       String?   @map("last_error") // Last fetch error message
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
@@ -167,7 +167,7 @@ model CustomWidget {
   dataSourceId  Int      @map("data_source_id")
   displayType   String   // "template" | "value" | "list" | "title-value"
   template      String?  // Template string for "template" display type
-  config        Json     @default("{}") // Layout config (fontSize, alignment, etc.)
+  config        String     @default("{}") // Layout config (fontSize, alignment, etc.)
   minWidth      Int      @default(100) @map("min_width")
   minHeight     Int      @default(50) @map("min_height")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -194,7 +194,7 @@ model DeviceLog {
   deviceId  Int      @map("device_id")
   level     String   // info, warning, error
   message   String
-  metadata  Json?
+  metadata  String?
   createdAt DateTime @default(now()) @map("created_at")
 
   device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -213,7 +213,7 @@ model WidgetTemplate {
   label         String   // Display name: "Live Clock", "Weather"
   description   String?
   category      String   // "time", "weather", "content", "system"
-  defaultConfig Json     // Default configuration for this widget type
+  defaultConfig String     // Default configuration for this widget type
   minWidth      Int      @default(100) @map("min_width")
   minHeight     Int      @default(50) @map("min_height")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -252,7 +252,7 @@ model ScreenWidget {
   width          Int      @default(200)
   height         Int      @default(100)
   rotation       Int      @default(0) // Rotation in degrees (0, 90, 180, 270, or any angle)
-  config         Json     // Widget-specific config (timezone, location, etc.)
+  config         String     // Widget-specific config (timezone, location, etc.)
   zIndex         Int      @default(0) @map("z_index")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -316,7 +316,7 @@ model Plugin {
   dataStrategy         String   @default("polling") @map("data_strategy") // polling | webhook | static
   dataUrl              String?  @map("data_url")     // supports {{setting}} interpolation
   dataMethod           String   @default("GET") @map("data_method")
-  dataHeaders          Json?    @map("data_headers")  // supports {{setting}} interpolation
+  dataHeaders          String?    @map("data_headers")  // supports {{setting}} interpolation
   dataPath             String?  @map("data_path")     // JSONPath to extract from response
   dataTransform        String?  @map("data_transform") // JS script to transform fetched data into locals
   refreshInterval      Int      @default(300) @map("refresh_interval") // seconds
@@ -328,7 +328,7 @@ model Plugin {
   markupQuadrant       String?  @map("markup_quadrant")
 
   // Settings schema: [{key, label, type, options?, required?, encrypted?, default?}]
-  settingsSchema       Json?    @map("settings_schema")
+  settingsSchema       String?    @map("settings_schema")
 
   // OAuth (for plugins that require OAuth2 authentication)
   oauthProvider        String?  @map("oauth_provider")  // "google" | "spotify" | "strava" etc.
@@ -355,8 +355,8 @@ model PluginInstance {
   pluginId             Int      @map("plugin_id")
   name                 String?  // optional custom name for this instance
 
-  settings             Json     @default("{}") // user settings (non-sensitive)
-  settingsEncrypted    Json     @default("{}") @map("settings_encrypted") // encrypted settings (API keys)
+  settings             String     @default("{}") // user settings (non-sensitive)
+  settingsEncrypted    String     @default("{}") @map("settings_encrypted") // encrypted settings (API keys)
 
   // OAuth tokens (encrypted)
   oauthToken           String?  @map("oauth_token")         // encrypted access token
@@ -364,7 +364,7 @@ model PluginInstance {
   oauthExpiresAt       DateTime? @map("oauth_expires_at")
 
   // Cached data (the locals hash)
-  lastData             Json?    @map("last_data")
+  lastData             String?    @map("last_data")
   lastFetchedAt        DateTime? @map("last_fetched_at")
   lastError            String?  @map("last_error")
 
