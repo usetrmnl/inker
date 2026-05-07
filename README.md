@@ -21,9 +21,9 @@ Inker is heading in its own direction — focusing on homelab integrations like 
 
 ## Screenshots
 
-| Screen Designer | Devices | Screens |
+| Devices | Screens | Screen Designer |
 |:-:|:-:|:-:|
-|  ![Devices](https://github.com/user-attachments/assets/e6ba89e7-7bac-419e-bb2e-54a1c0350e07) | ![Screens](https://github.com/user-attachments/assets/510c7d5c-730a-457d-af7d-50ee04b2dc43) | ![Screen Designer](https://github.com/user-attachments/assets/0e4fb32a-bde5-475f-8800-49b06cfce2e9) |
+| ![Devices](https://github.com/user-attachments/assets/e6ba89e7-7bac-419e-bb2e-54a1c0350e07) | ![Screens](https://github.com/user-attachments/assets/510c7d5c-730a-457d-af7d-50ee04b2dc43) | ![Screen Designer](https://github.com/user-attachments/assets/0e4fb32a-bde5-475f-8800-49b06cfce2e9) |
 
 | List of sources | Custom Data Sources | Custom Widgets |
 |:-:|:-:|:-:|
