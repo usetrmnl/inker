@@ -32,6 +32,7 @@ export class PlaylistsService {
         name: playlistData.name,
         description: playlistData.description,
         isActive: playlistData.isActive ?? true,
+        dailyRefreshAt: playlistData.dailyRefreshAt,
         advanceOnTap: playlistData.advanceOnTap ?? false,
       },
       include: {
@@ -348,6 +349,7 @@ export class PlaylistsService {
         name: playlistData.name,
         description: playlistData.description,
         isActive: playlistData.isActive,
+        dailyRefreshAt: playlistData.dailyRefreshAt,
         advanceOnTap: playlistData.advanceOnTap,
       },
       include: {

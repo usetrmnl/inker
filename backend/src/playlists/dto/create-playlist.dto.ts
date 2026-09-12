@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsArray, ValidateNested, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, ValidateNested, MaxLength, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class PlaylistScreenDto {
@@ -38,6 +38,15 @@ export class CreatePlaylistDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    example: '00:00',
+    description: 'Daily refresh time in HH:MM format, evaluated in the server timezone',
+    nullable: true,
+  })
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'dailyRefreshAt must be in HH:MM format' })
+  dailyRefreshAt?: string | null;
 
   @ApiPropertyOptional({
     example: false,

@@ -88,10 +88,11 @@ model Screen {
 }
 
 model Playlist {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  isActive    Boolean  @default(false) @map("is_active")
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?
+  isActive       Boolean  @default(false) @map("is_active")
+  dailyRefreshAt String?  @map("daily_refresh_at")
   // TRMNL X only: advance to the next screen on each device poll (middle-tap or on-schedule).
   advanceOnTap Boolean @default(false) @map("advance_on_tap")
   createdAt   DateTime @default(now()) @map("created_at")

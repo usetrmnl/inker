@@ -420,8 +420,15 @@ export class DisplayService {
 
     // Quiet hours (freeze mode): keep the current screen but make the device
     // sleep until the wake time instead of refreshing at the normal interval.
-    const finalRefreshRate = sleepSeconds ?? effectiveRefreshRate;
-    const finalRefreshAt = sleepSeconds !== null ? Date.now() + sleepSeconds * 1000 : nextRefreshAt;
+    const dailyRefreshSeconds = device.playlist.dailyRefreshAt
+      ? this.getSecondsUntilDailyRefresh(device.playlist.dailyRefreshAt)
+      : null;
+    const finalRefreshRate = sleepSeconds ?? dailyRefreshSeconds ?? effectiveRefreshRate;
+    const scheduledRefreshAt = sleepSeconds !== null
+      ? Date.now() + sleepSeconds * 1000
+      : dailyRefreshSeconds !== null
+        ? Date.now() + dailyRefreshSeconds * 1000
+        : nextRefreshAt;
 
     // Handle both regular screens and designed screens
     if (currentScreen.screen) {
@@ -457,7 +464,7 @@ export class DisplayService {
         special_function: '',
         temperature_profile: 'default',
         maximum_compatibility: screenChanged,
-        refresh_at: finalRefreshAt,
+        refresh_at: scheduledRefreshAt,
         battery: updatedDevice.battery,
         wifi: updatedDevice.wifi,
       };
@@ -504,7 +511,7 @@ export class DisplayService {
         special_function: '',
         temperature_profile: 'default',
         maximum_compatibility: screenChanged,
-        refresh_at: finalRefreshAt,
+        refresh_at: scheduledRefreshAt,
         battery: updatedDevice.battery,
         wifi: updatedDevice.wifi,
       };
@@ -534,7 +541,7 @@ export class DisplayService {
         special_function: '',
         temperature_profile: 'default',
         maximum_compatibility: screenChanged,
-        refresh_at: finalRefreshAt,
+        refresh_at: scheduledRefreshAt,
         battery: updatedDevice.battery,
         wifi: updatedDevice.wifi,
       };
@@ -814,6 +821,78 @@ export class DisplayService {
     // Intl can emit "24" for the midnight hour in some environments; normalize to 0.
     const hour = get('hour') % 24;
     return hour * 3600 + get('minute') * 60 + get('second');
+  }
+
+  /**
+   * Calculate the delay until the playlist's next daily refresh. The target is
+   * resolved in DEFAULT_TIMEZONE and converted back to UTC iteratively so DST
+   * transitions do not introduce a one-hour drift.
+   */
+  private getSecondsUntilDailyRefresh(refreshAt: string, now = new Date()): number | null {
+    const target = this.parseTimeToSeconds(refreshAt);
+    if (target === null) {
+      return null;
+    }
+
+    const timeZone = this.config.get<string>('defaultTimezone', 'UTC');
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const getParts = (date: Date) => {
+      const parts = formatter.formatToParts(date);
+      const get = (type: string) => parseInt(parts.find((part) => part.type === type)?.value || '0', 10);
+      return {
+        year: get('year'),
+        month: get('month'),
+        day: get('day'),
+        hour: get('hour') % 24,
+        minute: get('minute'),
+        second: get('second'),
+      };
+    };
+
+    const localNow = getParts(now);
+    const targetHour = Math.floor(target / 3600);
+    const targetMinute = Math.floor((target % 3600) / 60);
+    const boundaryBufferSeconds = 5;
+    const localNowSeconds = localNow.hour * 3600 + localNow.minute * 60 + localNow.second;
+    const targetPassed = localNowSeconds >= target + boundaryBufferSeconds;
+    const localTarget = new Date(Date.UTC(
+      localNow.year,
+      localNow.month - 1,
+      localNow.day + (targetPassed ? 1 : 0),
+      targetHour,
+      targetMinute,
+      boundaryBufferSeconds,
+    ));
+    const desiredTimestamp = localTarget.getTime();
+    let candidateTimestamp = desiredTimestamp;
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const candidate = getParts(new Date(candidateTimestamp));
+      const representedTimestamp = Date.UTC(
+        candidate.year,
+        candidate.month - 1,
+        candidate.day,
+        candidate.hour,
+        candidate.minute,
+        candidate.second,
+      );
+      const correction = desiredTimestamp - representedTimestamp;
+      candidateTimestamp += correction;
+      if (correction === 0) {
+        break;
+      }
+    }
+
+    return Math.max(10, Math.ceil((candidateTimestamp - now.getTime()) / 1000));
   }
 
   /**

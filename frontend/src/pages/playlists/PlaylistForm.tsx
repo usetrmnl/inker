@@ -38,6 +38,7 @@ export function PlaylistForm() {
     description: '',
     screens: [],
     isActive: true, // Always active by default
+    dailyRefreshAt: null,
     advanceOnTap: false,
   });
 
@@ -200,6 +201,7 @@ export function PlaylistForm() {
         description: playlist.description || '',
         screens: playlist.screens || [],
         isActive: playlist.isActive,
+        dailyRefreshAt: playlist.dailyRefreshAt ?? null,
         advanceOnTap: playlist.advanceOnTap ?? false,
       });
     }
@@ -373,6 +375,37 @@ export function PlaylistForm() {
                 className="w-full px-3 py-2 border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 rows={3}
               />
+            </div>
+
+            <div className="border-t border-border-light pt-6">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.dailyRefreshAt)}
+                  onChange={(e) => setFormData((prev) => ({
+                    ...prev,
+                    dailyRefreshAt: e.target.checked ? '00:00' : null,
+                  }))}
+                  className="mt-1 h-4 w-4 rounded border-border-light text-accent focus:ring-accent"
+                />
+                <span className="text-sm flex-1">
+                  <span className="font-medium text-text-primary">Refresh once daily</span>
+                  <span className="block text-text-muted">
+                    Schedule device refreshes at a fixed time in the server timezone.
+                  </span>
+                </span>
+              </label>
+              {formData.dailyRefreshAt && (
+                <div className="mt-4 ml-7 max-w-xs">
+                  <Input
+                    label="Daily refresh time"
+                    type="time"
+                    value={formData.dailyRefreshAt}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, dailyRefreshAt: e.target.value }))}
+                    required
+                  />
+                </div>
+              )}
             </div>
 
             <div className="border-t border-border-light pt-6">

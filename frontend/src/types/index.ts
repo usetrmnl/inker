@@ -114,6 +114,8 @@ export interface Playlist {
   description?: string;
   screens: PlaylistScreenWithDetails[];
   isActive: boolean;
+  /** Optional daily refresh time (HH:MM), evaluated in the server timezone */
+  dailyRefreshAt?: string | null;
   /** TRMNL X only: advance to the next screen on each device poll (middle tap / on schedule) */
   advanceOnTap?: boolean;
   userId: string;
@@ -352,6 +354,8 @@ export interface PlaylistFormData {
   description?: string;
   screens: PlaylistScreen[];
   isActive: boolean;
+  /** Optional daily refresh time (HH:MM), evaluated in the server timezone */
+  dailyRefreshAt?: string | null;
   /** TRMNL X only: advance to the next screen on each device poll (middle tap / on schedule) */
   advanceOnTap?: boolean;
 }

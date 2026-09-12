@@ -397,6 +397,70 @@ describe('DisplayService', () => {
     });
   });
 
+  describe('getSecondsUntilDailyRefresh (private)', () => {
+    const dailyRefresh = (time: string, now: Date) =>
+      (service as any).getSecondsUntilDailyRefresh(time, now);
+
+    it('returns the delay until the next refresh in the configured timezone', () => {
+      mockConfig.get = createMock().mockImplementation((key: string) =>
+        key === 'defaultTimezone' ? 'Europe/Amsterdam' : 'http://localhost:3002',
+      );
+
+      const result = dailyRefresh('00:00', new Date('2026-01-15T11:00:00Z'));
+
+      expect(result).toBe(43205);
+    });
+
+    it('accounts for the start of daylight saving time', () => {
+      mockConfig.get = createMock().mockImplementation((key: string) =>
+        key === 'defaultTimezone' ? 'Europe/Amsterdam' : 'http://localhost:3002',
+      );
+
+      const result = dailyRefresh('00:00', new Date('2026-03-28T23:00:10Z'));
+
+      expect(result).toBe(82795);
+    });
+
+    it('accounts for the end of daylight saving time', () => {
+      mockConfig.get = createMock().mockImplementation((key: string) =>
+        key === 'defaultTimezone' ? 'Europe/Amsterdam' : 'http://localhost:3002',
+      );
+
+      const result = dailyRefresh('00:00', new Date('2026-10-24T22:00:10Z'));
+
+      expect(result).toBe(89995);
+    });
+
+    it('returns null for invalid values', () => {
+      expect(dailyRefresh('midnight', new Date())).toBeNull();
+    });
+  });
+
+  describe('getDisplayContent - daily refresh', () => {
+    it('uses the playlist daily refresh time instead of the screen duration', async () => {
+      const now = new Date();
+      const targetMinutes = (now.getUTCHours() * 60 + now.getUTCMinutes() + 120) % 1440;
+      const dailyRefreshAt = `${String(Math.floor(targetMinutes / 60)).padStart(2, '0')}:${String(targetMinutes % 60).padStart(2, '0')}`;
+      mockPrisma.device.findFirst.mockResolvedValue({
+        id: 1, name: 'Test',
+        playlist: {
+          dailyRefreshAt,
+          items: [{ duration: 60, screen: { id: 9, name: 'S', imageUrl: '/uploads/s.png' } }],
+        },
+        refreshRate: 900, refreshPending: false,
+        width: 800, height: 480, sleepStartAt: null, sleepStopAt: null,
+      });
+      mockPrisma.device.update.mockResolvedValue({ id: 1, battery: 80, wifi: -50 });
+      mockPrisma.firmware.findFirst.mockResolvedValue(null);
+
+      const result = await service.getDisplayContent('test-key');
+
+      expect(result.refresh_rate).toBeGreaterThan(7100);
+      expect(result.refresh_rate).toBeLessThanOrEqual(7210);
+      expect(result.refresh_at).toBeGreaterThan(Date.now() + 7100 * 1000);
+    });
+  });
+
   describe('getDisplayContent - quiet hours', () => {
     const windowAroundNow = () => {
       const hhmm = (offsetMin: number) => {
