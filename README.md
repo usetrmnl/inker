@@ -19,7 +19,7 @@ Support project that uses inker:
 - **Custom Widgets** — Connect to any JSON API or RSS feed (including local network sources), JavaScript transformations, grid layouts with word-wrapped cells
 - **Plugins** — Grafana panel integration with dashboard picker, live preview, and section grid compositing. More homelab-native plugins coming soon!
 - **TRMNL OG & X** — Automatic model detection; full **TRMNL X** support (10.3″, 1872×1404, 16-level grayscale) alongside the 7.5″ OG (800×480, 1-bit)
-- **Playlists** — Rotate multiple screens on devices automatically, with optional **TRMNL X touch-bar** tap-to-advance (per playlist)
+- **Playlists** — Rotate multiple screens on devices automatically, schedule refreshes at a fixed daily time, or use the optional **TRMNL X touch-bar** tap-to-advance mode
 - **Device Management** — Auto-provisioning, firmware support, real-time status, logs
 - **BYOD Support** — Register any e-ink device manually with custom screen resolution
 - **Custom Ports** — Run on any port with Docker port mapping (e.g. `800:80`)

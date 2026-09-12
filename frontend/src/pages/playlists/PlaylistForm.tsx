@@ -455,6 +455,12 @@ export function PlaylistForm() {
                 </div>
               )}
 
+              {formData.dailyRefreshAt && (
+                <p className="mb-4 text-sm text-text-muted">
+                  Screen durations are inactive while daily refresh is enabled.
+                </p>
+              )}
+
               {/* Add screen section */}
               <div className="flex gap-4 mb-4">
                 {/* Screen Selection Preview */}
@@ -512,7 +518,7 @@ export function PlaylistForm() {
                       ))}
                     </Select>
                   </div>
-                  <div className="w-32">
+                  <div className={`w-32 ${formData.dailyRefreshAt ? 'opacity-50' : ''}`}>
                     <Input
                       label="Duration (s)"
                       type="number"
@@ -520,6 +526,7 @@ export function PlaylistForm() {
                       onChange={(e) => setDurationInput(e.target.value)}
                       onBlur={() => setDurationInput(String(formData.advanceOnTap ? Math.max(0, Number(durationInput) || 0) : Math.max(60, Number(durationInput) || 60)))}
                       min={60}
+                      disabled={Boolean(formData.dailyRefreshAt)}
                     />
                   </div>
                   <div className="flex items-end">
@@ -592,14 +599,15 @@ export function PlaylistForm() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className={`flex items-center gap-1 flex-shrink-0 ${formData.dailyRefreshAt ? 'opacity-50' : ''}`}>
                           <input
                             type="number"
                             value={screen.duration || ''}
                             onChange={(e) => handleUpdateScreenDuration(index, e.target.value)}
                             onBlur={() => handleBlurScreenDuration(index)}
                             min={60}
-                            className="w-16 px-2 py-1 text-sm text-center border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-accent"
+                            disabled={Boolean(formData.dailyRefreshAt)}
+                            className="w-16 px-2 py-1 text-sm text-center border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-accent disabled:bg-bg-card disabled:text-text-muted disabled:cursor-not-allowed"
                           />
                           <span className="text-sm text-text-secondary">s</span>
                         </div>
