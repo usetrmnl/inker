@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import axios from 'axios';
+import { modelService } from './api';
 
 // Mock axios before importing api module
 vi.mock('axios', () => {
@@ -128,6 +130,22 @@ describe('API service', () => {
       }
 
       expect(redirected).toBe(false);
+    });
+  });
+
+  describe('modelService.getAll', () => {
+    const og = { id: 1, name: 'og_png', label: 'TRMNL Original (PNG)', width: 800, height: 480, mimeType: 'image/png' };
+
+    it('unwraps the backend list shape { data: { items } } (Display Format selector)', async () => {
+      vi.mocked(axios.get).mockResolvedValueOnce({ data: { data: { items: [og] } } });
+      expect(await modelService.getAll()).toEqual([og]);
+    });
+
+    it('still accepts a raw array or a wrapped array', async () => {
+      vi.mocked(axios.get).mockResolvedValueOnce({ data: [og] });
+      expect(await modelService.getAll()).toEqual([og]);
+      vi.mocked(axios.get).mockResolvedValueOnce({ data: { data: [og] } });
+      expect(await modelService.getAll()).toEqual([og]);
     });
   });
 });

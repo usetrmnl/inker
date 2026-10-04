@@ -232,11 +232,14 @@ export const deviceService = {
 export const modelService = {
   async getAll(): Promise<DeviceModel[]> {
     try {
-      const response = await apiClient.get<ApiResponse<DeviceModel[]>>('/models');
-      // /models is public and may return either a wrapped ApiResponse or a raw array.
+      const response = await apiClient.get<ApiResponse<DeviceModel[] | { items?: DeviceModel[] }>>('/models');
+      // /models is public and may return a raw array, an ApiResponse wrapping an array, or an
+      // ApiResponse wrapping the backend's list shape ({ items }, see wrapListResponse).
       const body = response.data as unknown;
       if (Array.isArray(body)) return body as DeviceModel[];
-      return (response.data.data ?? []) as DeviceModel[];
+      const data = response.data.data;
+      if (Array.isArray(data)) return data;
+      return data?.items ?? [];
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
