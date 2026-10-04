@@ -329,6 +329,23 @@ async function main() {
       kind: 'terminus',
       scaleFactor: 1.0,
     },
+    {
+      // colors: 6 switches plugin/designed-screen renders to the Spectra 6 colour pipeline
+      // (palette=spectra6). bitDepth stays 1 so default/sleep screens keep the 1-bit path.
+      name: 'spectra6_800x480',
+      label: 'Spectra 6 7.3" (800x480, colour)',
+      width: 800,
+      height: 480,
+      description: 'Spectra 6 7.3" colour e-ink display (black, white, yellow, red, blue, green), 800x480, 6-colour indexed PNG',
+      mimeType: 'image/png',
+      colors: 6,
+      bitDepth: 1,
+      rotation: 0,
+      offsetX: 0,
+      offsetY: 0,
+      kind: 'terminus',
+      scaleFactor: 1.0,
+    },
   ];
 
   for (const modelData of models) {

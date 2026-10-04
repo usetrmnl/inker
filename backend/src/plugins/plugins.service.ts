@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import * as sharp from 'sharp';
 import { PrismaService } from '../prisma/prisma.service';
 import { PluginRendererService, PluginLayout } from './plugin-renderer.service';
+import type { ColorPalette } from '../common/utils/spectra6.util';
 import { EncryptionService } from '../common/services/encryption.service';
 import { OAuthService } from './oauth/oauth.service';
 import {
@@ -410,12 +411,29 @@ export class PluginsService {
   }
 
   /**
+   * Palette for admin previews of an instance: 'spectra6' when any device whose playlist
+   * shows this instance is a Spectra 6 (6-colour, PNG) model, so previews match the panel.
+   */
+  async previewPaletteForInstance(instanceId: number): Promise<ColorPalette | undefined> {
+    const colourDevice = await this.prisma.device.findFirst({
+      where: {
+        model: { is: { colors: 6, mimeType: { not: 'image/bmp' } } },
+        playlist: { is: { items: { some: { pluginInstanceId: instanceId } } } },
+      },
+      select: { id: true },
+    });
+    return colourDevice ? 'spectra6' : undefined;
+  }
+
+  /**
    * Render a plugin instance to PNG for device display.
+   * `palette` (e.g. 'spectra6') keeps colour for colour e-ink panels in device/einkPreview modes.
    */
   async renderInstance(
     instanceId: number,
     layout: PluginLayout = 'full',
     mode: 'device' | 'preview' | 'einkPreview' = 'device',
+    palette?: ColorPalette,
   ): Promise<Buffer> {
     const instance = await this.findInstanceById(instanceId);
     const plugin = instance.plugin;
@@ -477,7 +495,7 @@ export class PluginsService {
 
           if (childPanelIds.length === 0) throw new Error(`Row ${rowIdNum} has no panels`);
           this.logger.log(`[GrafanaSectionGrid] Row "${row.title}" has ${childPanelIds.length} panels: [${childPanelIds.join(', ')}]`);
-          return this.renderGrafanaSectionGrid(baseUrl, settings.dashboard_uid, conn.api_key, childPanelIds, from, rw, rh, mode);
+          return this.renderGrafanaSectionGrid(baseUrl, settings.dashboard_uid, conn.api_key, childPanelIds, from, rw, rh, mode, palette);
         } else {
           // Single panel
           panelUrl = `${baseUrl}/d-solo/${settings.dashboard_uid}?orgId=1&panelId=${panelId}&from=${from}&to=now&width=${rw}&height=${rh}&theme=light`;
@@ -499,6 +517,7 @@ export class PluginsService {
           rh,
           mode,
           evaluateScript,
+          palette,
         );
       }
     }
@@ -512,7 +531,7 @@ export class PluginsService {
       throw new NotFoundException(`Plugin ${plugin.slug} has no template for layout ${layout}`);
     }
 
-    return this.pluginRenderer.renderToPng(markup, locals, settings, width, height, mode);
+    return this.pluginRenderer.renderToPng(markup, locals, settings, width, height, mode, palette);
   }
 
   /**
@@ -528,6 +547,7 @@ export class PluginsService {
     targetWidth: number,
     targetHeight: number,
     mode: 'device' | 'preview' | 'einkPreview',
+    palette?: ColorPalette,
   ): Promise<Buffer> {
     const count = panelIds.length;
     if (count === 0) throw new Error('No panels in section');
@@ -615,7 +635,7 @@ export class PluginsService {
     if (mode === 'preview') return result;
 
     const shouldNegate = mode === 'device';
-    return this.pluginRenderer.screenRenderer.applyEinkProcessing(result, targetWidth, targetHeight, shouldNegate);
+    return this.pluginRenderer.screenRenderer.applyEinkProcessing(result, targetWidth, targetHeight, shouldNegate, 'png', 1, palette);
   }
 
   private async renderPluginPlaceholder(plugin: any, width: number, height: number): Promise<Buffer> {

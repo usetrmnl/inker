@@ -33,6 +33,7 @@ import { SetupService } from './setup/setup.service';
 import { LogService } from './log/log.service';
 import { CreateLogDto } from './log/dto/create-log.dto';
 import { ScreenRendererService } from '../screen-designer/services/screen-renderer.service';
+import { parsePalette } from '../common/utils/spectra6.util';
 
 /**
  * Device API Controller
@@ -608,6 +609,7 @@ export class ApiController {
    *   - preview: No e-ink processing (RGB preview for admin UI)
    *   - einkPreview: Full e-ink processing without inversion (pixel-perfect preview on RGB display)
    * - preview: Legacy boolean parameter (deprecated, use mode instead)
+   * - palette: Colour panel palette; only 'spectra6' is recognised (other values are ignored)
    */
   @Get('device-images/design/:id')
   @HttpCode(HttpStatus.OK)
@@ -629,11 +631,14 @@ export class ApiController {
     @Query('preview') preview: string,
     @Query('format') format: string,
     @Query('bitDepth') bitDepthRaw: string,
+    @Query('palette') paletteRaw: string,
     @Res() res: Response,
   ) {
     // Container: 'bmp' for TRMNL OG / DIY-kit firmware that rejects PNG (issue #31), otherwise PNG.
     // bitDepth 4 → 16-level grayscale (TRMNL X), delivered as a compressed grayscale PNG by default.
     const bitDepth = bitDepthRaw === '4' ? 4 : 1;
+    // palette=spectra6 → 6-colour indexed PNG for Spectra 6 panels (whitelisted; PNG only).
+    const palette = parsePalette(paletteRaw);
     const imageFormat: 'png' | 'bmp' = format === 'bmp' ? 'bmp' : 'png';
     const contentType = imageFormat === 'bmp' ? 'image/bmp' : 'image/png';
     try {
@@ -662,7 +667,7 @@ export class ApiController {
       };
 
       // Fall back to re-rendering if no capture exists
-      const imageBuffer = await this.screenRendererService.renderScreenDesign(id, deviceContext, renderMode, imageFormat, bitDepth);
+      const imageBuffer = await this.screenRendererService.renderScreenDesign(id, deviceContext, renderMode, imageFormat, bitDepth, palette);
 
       // Disable caching for all render modes - admin UI needs fresh previews
       const cacheHeaders = {

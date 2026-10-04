@@ -19,6 +19,13 @@ import puppeteer, { Browser } from 'puppeteer';
 import QRCode from 'qrcode';
 import { validateUrlSafety, UrlSafetyOptions } from '../../common/utils/url-safety';
 import { encodeBmp1bit, encodeGray4Bmp, quantizeGray16 } from '../../common/utils/bmp1bit.util';
+import {
+  type ColorPalette,
+  SPECTRA6_CONTRAST,
+  SPECTRA6_SATURATION,
+  ditherSpectra6,
+  encodeSpectra6Png,
+} from '../../common/utils/spectra6.util';
 import { SETTING_KEYS } from '../../settings/settings.service';
 import type { ScreenDesign, ScreenWidget, WidgetTemplate } from '@prisma/client';
 
@@ -297,8 +304,9 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
    * @param screenDesignId - ID of the screen design to render
    * @param deviceContext - Optional device data for battery/wifi/info widgets
    * @param mode - Render mode: 'device' (full e-ink), 'preview' (no processing), 'einkPreview' (e-ink without inversion)
+   * @param palette - Colour panel palette (e.g. 'spectra6'); keeps colour in device/einkPreview modes
    */
-  async renderScreenDesign(screenDesignId: number, deviceContext?: DeviceContext, mode: RenderMode | boolean = 'device', format: ImageFormat = 'png', bitDepth: number = 1): Promise<Buffer> {
+  async renderScreenDesign(screenDesignId: number, deviceContext?: DeviceContext, mode: RenderMode | boolean = 'device', format: ImageFormat = 'png', bitDepth: number = 1, palette?: ColorPalette): Promise<Buffer> {
     // Support legacy boolean parameter for backwards compatibility
     const renderMode: RenderMode = typeof mode === 'boolean' ? (mode ? 'preview' : 'device') : mode;
 
@@ -320,7 +328,7 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
       throw new NotFoundException('Screen design not found');
     }
 
-    return this.renderDesign(screenDesign as ScreenDesignWithWidgets, deviceContext, renderMode, format, bitDepth);
+    return this.renderDesign(screenDesign as ScreenDesignWithWidgets, deviceContext, renderMode, format, bitDepth, palette);
   }
 
   /**
@@ -345,7 +353,7 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
    * Internal render method - uses HTML/CSS + Puppeteer for pixel-perfect rendering
    * @param mode - Render mode: 'device' (full e-ink), 'preview' (no processing), 'einkPreview' (e-ink without inversion)
    */
-  private async renderDesign(screenDesign: ScreenDesignWithWidgets, deviceContext?: DeviceContext, mode: RenderMode = 'device', format: ImageFormat = 'png', bitDepth: number = 1): Promise<Buffer> {
+  private async renderDesign(screenDesign: ScreenDesignWithWidgets, deviceContext?: DeviceContext, mode: RenderMode = 'device', format: ImageFormat = 'png', bitDepth: number = 1, palette?: ColorPalette): Promise<Buffer> {
     const { width, height } = screenDesign;
 
     this.logger.debug(
@@ -377,7 +385,7 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
     // 'einkPreview' mode applies dithering but no inversion (for admin preview)
     const shouldNegate = mode === 'device';
 
-    return this.applyEinkProcessing(renderBuffer, width, height, shouldNegate, format, bitDepth);
+    return this.applyEinkProcessing(renderBuffer, width, height, shouldNegate, format, bitDepth, palette);
   }
 
   /**
@@ -388,10 +396,14 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
    * - Optional color inversion (for device display)
    * - 1-bit PNG output
    *
+   * With `palette: 'spectra6'` (PNG only) the image stays in colour instead: see
+   * applySpectra6Processing. BMP output has no colour variant and ignores the palette.
+   *
    * @param canvas - Sharp canvas with composited widgets
    * @param width - Original canvas width
    * @param height - Original canvas height
-   * @param negate - If true, invert colors (required for TRMNL e-ink devices)
+   * @param negate - If true, invert colors (required for TRMNL e-ink devices; never applied to colour)
+   * @param palette - Colour panel palette; overrides bitDepth when set
    */
   async applyEinkProcessing(
     inputBuffer: Buffer,
@@ -400,7 +412,12 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
     negate: boolean,
     format: ImageFormat = 'png',
     bitDepth: number = 1,
+    palette?: ColorPalette,
   ): Promise<Buffer> {
+    if (palette === 'spectra6' && format === 'png') {
+      return this.applySpectra6Processing(inputBuffer);
+    }
+
     const MAX_SIZE = 90000; // Max 90KB for TRMNL devices
     const threshold = 140; // Higher threshold favors white
 
@@ -510,6 +527,32 @@ export class ScreenRendererService implements OnModuleDestroy, OnModuleInit {
     );
 
     return buffer;
+  }
+
+  /**
+   * Spectra 6 colour path (6-colour e-ink). Unlike the monochrome path: no grayscale, no
+   * inversion (the firmware's colour decoder maps pixels as-is) and no downscale loop — the
+   * output is a 4-bit indexed PNG that stays far under the 750 KB limit of PSRAM boards.
+   *  1. flatten alpha on white, mild saturation/contrast boost (SPECTRA6_SATURATION/CONTRAST)
+   *  2. serpentine Floyd–Steinberg in RGB against the perceptual ink palette
+   *  3. write the canonical colours as an exact 6-entry indexed PNG
+   */
+  private async applySpectra6Processing(inputBuffer: Buffer): Promise<Buffer> {
+    const { data, info } = await sharp(inputBuffer)
+      .flatten({ background: { r: 255, g: 255, b: 255 } })
+      .modulate({ saturation: SPECTRA6_SATURATION })
+      .linear(SPECTRA6_CONTRAST, -(SPECTRA6_CONTRAST - 1) * 128)
+      .toColourspace('srgb')
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const indices = ditherSpectra6(data, info.width, info.height);
+    const png = encodeSpectra6Png(indices, info.width, info.height);
+    this.logger.debug(
+      `E-ink processing complete: ${png.length} bytes, Spectra 6 indexed PNG (${info.width}x${info.height})`,
+    );
+    return png;
   }
 
   /**

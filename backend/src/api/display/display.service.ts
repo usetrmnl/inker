@@ -7,6 +7,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { paletteForModel } from '../../common/utils/spectra6.util';
 import { DefaultScreenService } from './default-screen.service';
 import { SleepScreenService } from './sleep-screen.service';
 import { ScreenRendererService } from '../../screen-designer/services/screen-renderer.service';
@@ -217,9 +218,12 @@ export class DisplayService {
     //  - bitDepth 4  → 16-level grayscale (TRMNL X, 1872x1404), emitted as a compressed PNG.
     // Images are always sized to the device's native resolution so they fill the panel.
     // Container is driven purely by the model's mimeType; bitDepth governs grayscale vs 1-bit.
+    //  - colors 6 (PNG) → Spectra 6 colour e-ink: plugin/designed-screen renders get palette=spectra6
+    //    and come back as a 6-colour indexed PNG. Default/sleep screens keep the 1-bit path.
     const bitDepth = device.model?.bitDepth ?? 1;
     const isBmp = device.model?.mimeType === 'image/bmp';
     const imageFormat: 'png' | 'bmp' = isBmp ? 'bmp' : 'png';
+    const palette = paletteForModel(device.model);
     const devW = device.width || 800;
     const devH = device.height || 480;
     // Swap a filename's extension to match the served format (drives the device's
@@ -428,6 +432,8 @@ export class DisplayService {
       // Regular uploaded screen. A plain 1-bit PNG device gets the stored file directly; devices
       // needing a converted image — 1-bit BMP (issue #31) or grayscale (TRMNL X) — fetch it via the
       // screen-image endpoint, which re-processes the upload to the right format/depth/resolution.
+      // No colour variant: uploads only keep their 1-bit dithered file (the original is deleted on
+      // upload), so Spectra 6 panels show uploaded screens in black & white.
       const needsConversion = isBmp || bitDepth >= 4;
       const convParams = `format=${imageFormat}${bitDepth > 1 ? `&bitDepth=${bitDepth}` : ''}&t=${Date.now()}`;
       const imageUrl = needsConversion
@@ -477,6 +483,8 @@ export class DisplayService {
         ...(isBmp ? { format: 'bmp' } : {}),
         // 4-bit grayscale panels (TRMNL X) request a matching color depth
         ...(bitDepth > 1 ? { bitDepth: String(bitDepth) } : {}),
+        // Colour panels (Spectra 6) request a colour render instead of 1-bit
+        ...(palette ? { palette } : {}),
       });
       const renderUrl = `${apiUrl}/api/device-images/design/${currentScreen.screenDesign.id}?${queryParams.toString()}`;
 
@@ -514,7 +522,8 @@ export class DisplayService {
       const pluginInstance = currentScreen.pluginInstance;
       const timestamp = Date.now();
 
-      const renderUrl = `${apiUrl}/api/plugins/instances/${pluginInstance.id}/render?mode=device&t=${timestamp}`;
+      const paletteParam = palette ? `&palette=${palette}` : '';
+      const renderUrl = `${apiUrl}/api/plugins/instances/${pluginInstance.id}/render?mode=device${paletteParam}&t=${timestamp}`;
       const dynamicFilename = `plugin-${pluginInstance.plugin.slug}-${timestamp}.png`;
 
       this.logger.debug(
@@ -911,6 +920,7 @@ export class DisplayService {
     const device = await this.prisma.device.findUnique({
       where: { id: deviceId },
       include: {
+        model: true,
         playlist: {
           include: {
             items: {
@@ -989,6 +999,16 @@ export class DisplayService {
         currentScreen.screenDesign.id,
         deviceContext,
         true, // preview mode
+      );
+    }
+
+    // Plugin instances: render as the e-ink preview, in colour for Spectra 6 devices
+    if (currentScreen.pluginInstance?.plugin) {
+      return this.pluginsService.renderInstance(
+        currentScreen.pluginInstance.id,
+        'full',
+        'einkPreview',
+        paletteForModel(device.model),
       );
     }
 

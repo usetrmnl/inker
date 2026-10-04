@@ -9,6 +9,7 @@ import { SetupService } from './setup/setup.service';
 import { LogService } from './log/log.service';
 import { ScreenRendererService } from '../screen-designer/services/screen-renderer.service';
 import { ConfigService } from '@nestjs/config';
+import { createMock } from '../test/mocks/helpers';
 
 describe('ApiController (e2e)', () => {
   let app: INestApplication;
@@ -38,7 +39,7 @@ describe('ApiController (e2e)', () => {
   };
 
   const mockScreenRendererService = {
-    renderScreenDesign: async () => Buffer.from('PNG'),
+    renderScreenDesign: createMock().mockResolvedValue(Buffer.from('PNG')),
   };
 
   const mockDefaultScreenService = {
@@ -113,6 +114,21 @@ describe('ApiController (e2e)', () => {
 
       expect(response.body.detail).toBe('Device API key required');
       expect(response.body.extensions?.receivedHeaders).toBeUndefined();
+    });
+  });
+
+  describe('GET /api/device-images/design/:id', () => {
+    // renderScreenDesign(id, deviceContext, mode, format, bitDepth, palette)
+    const lastPalette = () => mockScreenRendererService.renderScreenDesign.calls.at(-1)?.[5];
+
+    it('threads palette=spectra6 to the renderer', async () => {
+      await request(app.getHttpServer()).get('/api/device-images/design/7?mode=device&palette=spectra6').expect(200);
+      expect(lastPalette()).toBe('spectra6');
+    });
+
+    it('ignores unknown palette values', async () => {
+      await request(app.getHttpServer()).get('/api/device-images/design/7?mode=device&palette=acep7').expect(200);
+      expect(lastPalette()).toBeUndefined();
     });
   });
 });

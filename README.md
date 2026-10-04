@@ -19,6 +19,7 @@ Support project that uses inker:
 - **Custom Widgets** — Connect to any JSON API or RSS feed (including local network sources), JavaScript transformations, grid layouts with word-wrapped cells
 - **Plugins** — Grafana panel integration with dashboard picker, live preview, and section grid compositing. More homelab-native plugins coming soon!
 - **TRMNL OG & X** — Automatic model detection; full **TRMNL X** support (10.3″, 1872×1404, 16-level grayscale) alongside the 7.5″ OG (800×480, 1-bit)
+- **Spectra 6 colour e-ink** — Pick the *Spectra 6 7.3″ (800x480, colour)* display format for a 6-colour panel (black, white, yellow, red, blue, green): plugins and designed screens are dithered server-side to a 6-colour PNG. Uploaded screens stay black & white
 - **Playlists** — Rotate multiple screens on devices automatically, with optional **TRMNL X touch-bar** tap-to-advance (per playlist)
 - **Device Management** — Auto-provisioning, firmware support, real-time status, logs
 - **BYOD Support** — Register any e-ink device manually with custom screen resolution

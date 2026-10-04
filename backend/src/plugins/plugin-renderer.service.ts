@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Liquid } from 'liquidjs';
 import * as sharp from 'sharp';
 import { ScreenRendererService } from '../screen-designer/services/screen-renderer.service';
+import type { ColorPalette } from '../common/utils/spectra6.util';
 import { TRMNL_CSS } from './sync/trmnl-css';
 
 export type PluginLayout = 'full' | 'half_horizontal' | 'half_vertical' | 'quadrant';
@@ -225,6 +226,7 @@ ${innerHtml}
     width: number = 800,
     height: number = 480,
     mode: 'device' | 'preview' | 'einkPreview' = 'device',
+    palette?: ColorPalette,
   ): Promise<Buffer> {
     const innerHtml = await this.renderToHtml(markup, locals, settings);
     const fullPage = this.buildFullPage(innerHtml, width, height);
@@ -237,9 +239,9 @@ ${innerHtml}
       return rawPng;
     }
 
-    // Apply e-ink processing (dithering + optional inversion)
+    // Apply e-ink processing (dithering + optional inversion, or colour for a palette)
     const shouldNegate = mode === 'device';
-    return this.screenRenderer.applyEinkProcessing(rawPng, width, height, shouldNegate);
+    return this.screenRenderer.applyEinkProcessing(rawPng, width, height, shouldNegate, 'png', 1, palette);
   }
 
   /**
@@ -252,6 +254,7 @@ ${innerHtml}
     height: number = 480,
     mode: 'device' | 'preview' | 'einkPreview' = 'device',
     evaluateScript?: string,
+    palette?: ColorPalette,
   ): Promise<Buffer> {
     const browser = await this.screenRenderer.getBrowser();
     const page = await browser.newPage();
@@ -272,7 +275,7 @@ ${innerHtml}
       if (mode === 'preview') return rawPng;
 
       const shouldNegate = mode === 'device';
-      return this.screenRenderer.applyEinkProcessing(rawPng, width, height, shouldNegate);
+      return this.screenRenderer.applyEinkProcessing(rawPng, width, height, shouldNegate, 'png', 1, palette);
     } finally {
       await page.close();
     }

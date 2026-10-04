@@ -21,6 +21,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { PluginsService } from './plugins.service';
 import { OAuthService } from './oauth/oauth.service';
 import { PluginLayout } from './plugin-renderer.service';
+import { parsePalette } from '../common/utils/spectra6.util';
 import {
   CreatePluginDto,
   UpdatePluginDto,
@@ -516,6 +517,7 @@ export class PluginsController {
     @Param('id', ParseIntPipe) id: number,
     @Query('layout') layout: string,
     @Query('mode') mode: string,
+    @Query('palette') palette: string,
     @Res() res: Response,
   ) {
     const validLayout = (['full', 'half_horizontal', 'half_vertical', 'quadrant'].includes(layout)
@@ -525,7 +527,14 @@ export class PluginsController {
       ? mode
       : 'preview') as 'device' | 'preview' | 'einkPreview';
 
-    const imageBuffer = await this.pluginsService.renderInstance(id, validLayout, validMode);
+    // palette=spectra6 → 6-colour indexed PNG for Spectra 6 panels; unknown values are ignored.
+    // Admin previews (einkPreview) carry no palette, so derive it from the devices showing this
+    // instance; an explicit palette always wins and device/preview modes are never inferred.
+    let validPalette = parsePalette(palette);
+    if (!validPalette && validMode === 'einkPreview') {
+      validPalette = await this.pluginsService.previewPaletteForInstance(id);
+    }
+    const imageBuffer = await this.pluginsService.renderInstance(id, validLayout, validMode, validPalette);
 
     res.set({
       'Content-Type': 'image/png',

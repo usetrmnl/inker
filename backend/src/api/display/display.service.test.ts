@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { DisplayService } from './display.service';
 import { createMockPrisma } from '../../test/mocks/prisma.mock';
-import { createMock } from '../../test/mocks/helpers';
+import { createMock, type MockFn } from '../../test/mocks/helpers';
+import type { PluginsService } from '../../plugins/plugins.service';
 
 describe('DisplayService', () => {
   let service: DisplayService;
@@ -10,6 +11,7 @@ describe('DisplayService', () => {
   let mockDefaultScreenService: any;
   let mockSleepScreenService: any;
   let mockScreenRendererService: any;
+  let mockPluginsService: { renderInstance: MockFn<Promise<Buffer>> };
 
   beforeEach(() => {
     mockPrisma = createMockPrisma();
@@ -45,12 +47,17 @@ describe('DisplayService', () => {
     mockScreenRendererService = {
       renderScreenDesign: createMock().mockResolvedValue(Buffer.from('PNG')),
     };
+    mockPluginsService = {
+      renderInstance: createMock().mockResolvedValue(Buffer.from('PLUGINPNG')),
+    };
     service = new DisplayService(
       mockPrisma as any,
       mockConfig,
       mockDefaultScreenService,
       mockSleepScreenService,
       mockScreenRendererService,
+      // Only renderInstance is exercised by DisplayService's preview path.
+      mockPluginsService as unknown as PluginsService,
     );
   });
 
@@ -314,6 +321,36 @@ describe('DisplayService', () => {
       expect(mockScreenRendererService.renderScreenDesign.calls.length).toBe(0);
       expect(result).toBeInstanceOf(Buffer);
     });
+
+    describe('plugin items', () => {
+      const deviceWithPlugin = (model: Record<string, unknown> | null) => ({
+        id: 1,
+        name: 'Test',
+        model,
+        playlist: {
+          items: [{
+            duration: 60,
+            screenDesign: null,
+            screen: null,
+            pluginInstance: { id: 7, plugin: { slug: 'weather', name: 'Weather' } },
+          }],
+        },
+      });
+
+      it('renders the plugin as a Spectra 6 e-ink preview on a colors-6 PNG device', async () => {
+        mockPrisma.device.findUnique.mockResolvedValue(deviceWithPlugin({ colors: 6, mimeType: 'image/png' }));
+        const result = await service.getCurrentScreenImage(1);
+        expect(mockPluginsService.renderInstance.calls).toEqual([[7, 'full', 'einkPreview', 'spectra6']]);
+        expect(result.toString()).toBe('PLUGINPNG');
+        expect(mockDefaultScreenService.getDefaultScreenPreviewBuffer.calls.length).toBe(0);
+      });
+
+      it('renders the plugin without a palette on a 2-colour device', async () => {
+        mockPrisma.device.findUnique.mockResolvedValue(deviceWithPlugin({ colors: 2, mimeType: 'image/png' }));
+        await service.getCurrentScreenImage(1);
+        expect(mockPluginsService.renderInstance.calls).toEqual([[7, 'full', 'einkPreview', undefined]]);
+      });
+    });
   });
 
   describe('getImageFilename (private)', () => {
@@ -566,6 +603,53 @@ describe('DisplayService', () => {
       expect(result.image_url).toContain('/api/device-images/screen/9');
       expect(result.image_url).toContain('format=bmp');
       expect(result.filename).toMatch(/\.bmp$/);
+    });
+
+    describe('Spectra 6 colour palette', () => {
+      const deviceWith = (model: Record<string, unknown>, item: Record<string, unknown>) => ({
+        id: 1, name: 'S6', refreshRate: 900, refreshPending: false, width: 800, height: 480,
+        model: { width: 800, height: 480, bitDepth: 1, ...model },
+        playlist: { items: [{ duration: 60, ...item }] },
+      });
+      const designItem = { screenDesign: { id: 7, name: 'D' } };
+      const pluginItem = { pluginInstance: { id: 3, plugin: { slug: 'weather', name: 'Weather' } } };
+
+      beforeEach(() => {
+        mockPrisma.device.update.mockResolvedValue({ id: 1, battery: null, wifi: null });
+        mockPrisma.firmware.findFirst.mockResolvedValue(null);
+      });
+
+      it('appends palette=spectra6 to the designed-screen render URL for a colors-6 PNG model', async () => {
+        mockPrisma.device.findFirst.mockResolvedValue(deviceWith({ mimeType: 'image/png', colors: 6 }, designItem));
+        const result = await service.getDisplayContent('test-key');
+        expect(result.image_url).toContain('/api/device-images/design/7');
+        expect(result.image_url).toContain('palette=spectra6');
+        expect(result.image_url).not.toContain('bitDepth=');
+        expect(result.filename).toMatch(/\.png$/);
+      });
+
+      it('appends palette=spectra6 to the plugin render URL for a colors-6 PNG model', async () => {
+        mockPrisma.device.findFirst.mockResolvedValue(deviceWith({ mimeType: 'image/png', colors: 6 }, pluginItem));
+        const result = await service.getDisplayContent('test-key');
+        expect(result.image_url).toMatch(/\/api\/plugins\/instances\/3\/render\?mode=device&palette=spectra6&t=\d+$/);
+      });
+
+      it('does not append a palette for 1-bit or grayscale models', async () => {
+        for (const model of [{ mimeType: 'image/png', colors: 2 }, { mimeType: 'image/png', colors: 16, bitDepth: 4 }]) {
+          for (const item of [designItem, pluginItem]) {
+            mockPrisma.device.findFirst.mockResolvedValue(deviceWith(model, item));
+            const result = await service.getDisplayContent('test-key');
+            expect(result.image_url).not.toContain('palette=');
+          }
+        }
+      });
+
+      it('does not append a palette for a colors-6 BMP model (colour BMP unsupported)', async () => {
+        mockPrisma.device.findFirst.mockResolvedValue(deviceWith({ mimeType: 'image/bmp', colors: 6 }, designItem));
+        const result = await service.getDisplayContent('test-key');
+        expect(result.image_url).not.toContain('palette=');
+        expect(result.image_url).toContain('format=bmp');
+      });
     });
   });
 
